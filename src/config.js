@@ -3,7 +3,7 @@ export const appConfig = {
   title: 'Atmospheric Pressure Monitoring Dashboard',
   subtitle: 'Developed by Junaid Ahmed',
   developerName: 'Junaid Ahmed',
-  linkedinUrl: 'https://www.linkedin.com/in/junaid-ahmed/',
+  linkedinUrl: 'https://www.linkedin.com/in/junaid-ahmed-a38480288',
   map: {
     center: [11.1271, 78.6569],
     zoom: 7,
