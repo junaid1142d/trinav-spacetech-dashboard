@@ -1,0 +1,30 @@
+{
+  "name": "atmospheric-pressure-monitoring-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Enterprise geospatial atmospheric pressure monitoring dashboard for Tamil Nadu.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.1",
+    "@vitejs/plugin-react": "^6.0.3",
+    "tailwindcss": "^4.3.1",
+    "vite": "^8.1.0"
+  },
+  "dependencies": {
+    "framer-motion": "^12.41.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.21.0",
+    "papaparse": "^5.5.4",
+    "react": "^19.2.7",
+    "react-countup": "^6.5.3",
+    "react-dom": "^19.2.7",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.18.0",
+    "recharts": "^3.9.0"
+  }
+}

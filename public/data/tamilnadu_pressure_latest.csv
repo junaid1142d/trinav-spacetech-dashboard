@@ -1,0 +1,11 @@
+Station,City,Latitude,Longitude,Timestamp,Pressure_hPa
+Chennai Marina Observatory,Chennai,13.0500,80.2824,2026-06-25T09:30:00+05:30,1007.8
+Coimbatore Aero Station,Coimbatore,11.0168,76.9558,2026-06-25T09:30:00+05:30,1011.6
+Madurai Urban Sensor,Madurai,9.9252,78.1198,2026-06-25T09:30:00+05:30,1009.9
+Tiruchirappalli River Node,Tiruchirappalli,10.7905,78.7047,2026-06-25T09:30:00+05:30,1010.4
+Salem Ridge Station,Salem,11.6643,78.1460,2026-06-25T09:30:00+05:30,1012.2
+Tirunelveli South Array,Tirunelveli,8.7139,77.7567,2026-06-25T09:30:00+05:30,1008.7
+Thoothukudi Coastal Node,Thoothukudi,8.7642,78.1348,2026-06-25T09:30:00+05:30,1006.9
+Vellore Fort Station,Vellore,12.9165,79.1325,2026-06-25T09:30:00+05:30,1013.4
+Erode Plains Sensor,Erode,11.3410,77.7172,2026-06-25T09:30:00+05:30,1011.1
+Kanyakumari Cape Station,Kanyakumari,8.0883,77.5385,2026-06-25T09:30:00+05:30,1008.1
