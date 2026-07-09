@@ -1,227 +1,178 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  ResponsiveContainer, 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip 
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, ReferenceLine, Area, AreaChart
 } from 'recharts';
-import { TrendingUp, TrendingDown, Minus, Info, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Calendar, Info } from 'lucide-react';
+
+const FILTERS = [
+  { id: '24h', label: '24H' },
+  { id: '7d', label: '7D' },
+  { id: '30d', label: '30D' },
+  { id: 'all', label: 'ALL' },
+];
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload?.length) {
+    return (
+      <div className="bg-[#111] border border-white/10 rounded-lg px-3 py-2 text-xs font-mono shadow-xl">
+        <p className="text-[#737373] mb-1 text-[10px]">{label}</p>
+        <p className="text-white font-bold">{Number(payload[0].value).toFixed(2)} <span className="text-[#737373]">hPa</span></p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function AnalyticsPanel({ stationName, stationObservations }) {
-  const [timeFilter, setTimeFilter] = useState('7d'); // 24h, 7d, 30d, all
+  const [timeFilter, setTimeFilter] = useState('7d');
 
-  // Sort observations chronologically
-  const sortedObs = useMemo(() => {
-    return [...stationObservations].sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp));
-  }, [stationObservations]);
+  const sorted = useMemo(() =>
+    [...stationObservations].sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp)),
+    [stationObservations]
+  );
 
-  // Filter observations based on time filter
-  const filteredObs = useMemo(() => {
-    if (sortedObs.length === 0) return [];
-    
-    const latestDate = new Date(sortedObs[sortedObs.length - 1].Timestamp);
-    
-    return sortedObs.filter(obs => {
-      const obsDate = new Date(obs.Timestamp);
-      const diffMs = latestDate - obsDate;
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-      if (timeFilter === '24h') return diffDays <= 1;
-      if (timeFilter === '7d') return diffDays <= 7;
-      if (timeFilter === '30d') return diffDays <= 30;
-      return true; // 'all'
+  const filtered = useMemo(() => {
+    if (!sorted.length) return [];
+    const latest = new Date(sorted[sorted.length - 1].Timestamp);
+    return sorted.filter(o => {
+      const diff = (latest - new Date(o.Timestamp)) / 86400000;
+      if (timeFilter === '24h') return diff <= 1;
+      if (timeFilter === '7d') return diff <= 7;
+      if (timeFilter === '30d') return diff <= 30;
+      return true;
     });
-  }, [sortedObs, timeFilter]);
+  }, [sorted, timeFilter]);
 
-  // Calculate statistics for the filtered range
   const stats = useMemo(() => {
-    if (filteredObs.length === 0) {
-      return { current: 0, avg: 0, min: 0, max: 0, trend: 'stable' };
-    }
-
-    const pressures = filteredObs.map(o => o.Pressure_hPa);
-    const current = pressures[pressures.length - 1];
-    const total = pressures.reduce((acc, v) => acc + v, 0);
-    const avg = parseFloat((total / pressures.length).toFixed(2));
-    const min = Math.min(...pressures);
-    const max = Math.max(...pressures);
-
-    // Calculate trend by comparing current pressure to the previous one
+    if (!filtered.length) return { current: 0, avg: 0, min: 0, max: 0, trend: 'stable' };
+    const ps = filtered.map(o => o.Pressure_hPa);
+    const current = ps[ps.length - 1];
+    const avg = parseFloat((ps.reduce((a, b) => a + b, 0) / ps.length).toFixed(2));
     let trend = 'stable';
-    if (pressures.length > 1) {
-      const prev = pressures[pressures.length - 2];
-      const diff = current - prev;
-      if (diff > 0.05) trend = 'rising';
-      else if (diff < -0.05) trend = 'falling';
+    if (ps.length > 1) {
+      const d = current - ps[ps.length - 2];
+      if (d > 0.05) trend = 'rising';
+      else if (d < -0.05) trend = 'falling';
     }
+    return { current, avg, min: Math.min(...ps), max: Math.max(...ps), trend };
+  }, [filtered]);
 
-    return { current, avg, min, max, trend };
-  }, [filteredObs]);
+  const avgLine = stats.avg;
 
-  // Format date for chart labels
-  const formatChartDate = (tickItem) => {
-    if (!tickItem) return '';
-    const date = new Date(tickItem);
-    if (timeFilter === '24h') {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })} ${date.toLocaleTimeString([], { hour: '2-digit' })}`;
+  const formatTick = (v) => {
+    if (!v) return '';
+    const d = new Date(v);
+    if (timeFilter === '24h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`;
   };
 
-  // Custom Chart Tooltip
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="glass-panel p-3 rounded-lg border border-brand-cyan/40 bg-brand-navy/95 shadow-xl text-xs font-mono select-none">
-          <p className="text-brand-textSecondary mb-1.5">{label}</p>
-          <p className="text-brand-cyan font-bold flex justify-between gap-4">
-            <span>Pressure:</span>
-            <span>{payload[0].value.toFixed(2)} hPa</span>
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+  const TrendIcon = stats.trend === 'rising' ? TrendingUp : stats.trend === 'falling' ? TrendingDown : Minus;
+  const trendColor = stats.trend === 'rising' ? '#22C55E' : stats.trend === 'falling' ? '#22D3EE' : '#737373';
 
   return (
-    <div className="glass-panel p-5 rounded-2xl border border-brand-border space-y-6">
-      {/* Panel Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-brand-border pb-4">
+    <div className="bg-[#0A0A0A] border border-white/[0.08] rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-white/[0.06] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <span className="text-[10px] text-brand-textMuted uppercase font-mono tracking-wider block">Station Telemetry Drawer</span>
-          <h4 className="text-lg font-bold text-white font-['Outfit'] truncate max-w-[280px]" title={stationName}>
-            {stationName}
-          </h4>
+          <p className="text-[9px] text-[#737373] font-mono uppercase tracking-wider">Station Analytics</p>
+          <h4 className="text-sm font-semibold text-white truncate max-w-[260px]">{stationName}</h4>
         </div>
-        
-        {/* Time Filters */}
-        <div className="flex bg-brand-dark/60 rounded-xl p-0.5 border border-brand-border/60">
-          {[
-            { id: '24h', label: '24 Hours' },
-            { id: '7d', label: '7 Days' },
-            { id: '30d', label: '30 Days' },
-            { id: 'all', label: 'All Logs' }
-          ].map((filter) => (
+        <div className="flex bg-[#111] rounded-lg p-0.5 border border-white/[0.06]">
+          {FILTERS.map(f => (
             <button
-              key={filter.id}
-              onClick={() => setTimeFilter(filter.id)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
-                timeFilter === filter.id 
-                  ? 'bg-brand-cyan text-brand-navy font-bold shadow-cyan-glow' 
-                  : 'text-brand-textSecondary hover:text-white'
+              key={f.id}
+              onClick={() => setTimeFilter(f.id)}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition-all ${
+                timeFilter === f.id ? 'bg-white text-black' : 'text-[#737373] hover:text-white'
               }`}
             >
-              {filter.label}
+              {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Grid of Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <div className="p-3 bg-brand-dark/40 border border-brand-border/30 rounded-xl flex flex-col justify-between">
-          <span className="text-[10px] text-brand-textMuted font-mono">Current Reading</span>
-          <span className="text-lg font-extrabold text-white mt-1.5">{stats.current ? `${stats.current} hPa` : '-'}</span>
-        </div>
-        
-        <div className="p-3 bg-brand-dark/40 border border-brand-border/30 rounded-xl flex flex-col justify-between">
-          <span className="text-[10px] text-brand-textMuted font-mono">Pressure Mean</span>
-          <span className="text-lg font-extrabold text-brand-blue mt-1.5">{stats.avg ? `${stats.avg} hPa` : '-'}</span>
-        </div>
-
-        <div className="p-3 bg-brand-dark/40 border border-brand-border/30 rounded-xl flex flex-col justify-between">
-          <span className="text-[10px] text-brand-textMuted font-mono">Min / Max Baro</span>
-          <span className="text-xs font-bold text-white mt-1.5">
-            {stats.min ? `${stats.min} / ${stats.max}` : '-'} <span className="text-[9px] text-brand-textMuted">hPa</span>
-          </span>
-        </div>
-
-        <div className="p-3 bg-brand-dark/40 border border-brand-border/30 rounded-xl flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-brand-textMuted font-mono">Pressure Trend</span>
-            <span className="text-xs font-bold text-white mt-1 select-none capitalize">
-              {stats.trend}
-            </span>
+      {/* Stats row */}
+      <div className="grid grid-cols-4 divide-x divide-white/[0.06] border-b border-white/[0.06]">
+        {[
+          { label: 'Current', value: `${stats.current.toFixed(2)}`, unit: 'hPa', color: 'text-white' },
+          { label: 'Average', value: `${stats.avg.toFixed(2)}`, unit: 'hPa', color: 'text-[#22D3EE]' },
+          { label: 'Min', value: `${stats.min.toFixed(2)}`, unit: 'hPa', color: 'text-[#737373]' },
+          { label: 'Max', value: `${stats.max.toFixed(2)}`, unit: 'hPa', color: 'text-[#737373]' },
+        ].map(s => (
+          <div key={s.label} className="px-3 py-3 flex flex-col">
+            <span className="text-[9px] text-[#737373] font-mono uppercase">{s.label}</span>
+            <span className={`text-sm font-bold ${s.color} font-mono mt-0.5`}>{s.value}</span>
+            <span className="text-[8px] text-[#404040] font-mono">{s.unit}</span>
           </div>
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-            stats.trend === 'rising' 
-              ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-500/30' 
-              : stats.trend === 'falling' 
-                ? 'bg-blue-950/40 text-brand-cyan border border-brand-cyan/30' 
-                : 'bg-slate-900 text-slate-400 border border-slate-700/50'
-          }`}>
-            {stats.trend === 'rising' ? <TrendingUp className="w-4 h-4" /> : 
-             stats.trend === 'falling' ? <TrendingDown className="w-4 h-4" /> : 
-             <Minus className="w-4 h-4" />}
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Recharts Graphical Display */}
-      <div className="w-full h-[255px]">
-        {filteredObs.length === 0 ? (
-          <div className="w-full h-full flex flex-col items-center justify-center border border-dashed border-brand-border rounded-2xl bg-brand-dark/20 text-brand-textSecondary text-xs">
-            <Calendar className="w-8 h-8 text-brand-cyan/40 mb-2" />
-            No readings recorded inside this temporal range.
+      {/* Chart */}
+      <div className="p-4">
+        {filtered.length === 0 ? (
+          <div className="h-44 flex flex-col items-center justify-center text-[#404040] text-xs border border-dashed border-white/[0.06] rounded-lg">
+            <Calendar className="w-6 h-6 mb-2" />
+            No data in this time range
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={filteredObs}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="pressureColor" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#22D3EE" stopOpacity={0.05}/>
-                </linearGradient>
-              </defs>
-              
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-              
-              <XAxis 
-                dataKey="Timestamp" 
-                tickFormatter={formatChartDate} 
-                stroke="#64748B"
-                fontSize={9}
-                fontFamily="JetBrains Mono"
-                tickLine={false}
-                axisLine={false}
-              />
-              
-              <YAxis 
-                domain={['auto', 'auto']}
-                stroke="#64748B"
-                fontSize={9}
-                fontFamily="JetBrains Mono"
-                tickLine={false}
-                axisLine={false}
-              />
-              
-              <Tooltip content={<CustomTooltip />} />
-              
-              <Line 
-                type="monotone" 
-                dataKey="Pressure_hPa" 
-                stroke="url(#pressureColor)" 
-                strokeWidth={2.5}
-                dot={filteredObs.length < 50 ? { stroke: '#22D3EE', strokeWidth: 1.5, r: 3 } : false}
-                activeDot={{ r: 5, stroke: '#FFFFFF', strokeWidth: 1 }}
-                animationDuration={800}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="h-44">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={filtered} margin={{ top: 5, right: 5, left: -30, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="pressGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#22D3EE" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                <XAxis
+                  dataKey="Timestamp"
+                  tickFormatter={formatTick}
+                  stroke="#2a2a2a"
+                  tick={{ fill: '#525252', fontSize: 8, fontFamily: 'JetBrains Mono' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#1a1a1a' }}
+                />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  stroke="#2a2a2a"
+                  tick={{ fill: '#525252', fontSize: 8, fontFamily: 'JetBrains Mono' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <ReferenceLine
+                  y={avgLine}
+                  stroke="rgba(255,255,255,0.15)"
+                  strokeDasharray="4 4"
+                  label={{ value: `AVG ${avgLine}`, position: 'right', fill: '#525252', fontSize: 8 }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="Pressure_hPa"
+                  stroke="#22D3EE"
+                  strokeWidth={1.5}
+                  fill="url(#pressGrad)"
+                  dot={false}
+                  activeDot={{ r: 4, stroke: '#fff', strokeWidth: 1, fill: '#22D3EE' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         )}
-      </div>
 
-      {/* Footer hint */}
-      <div className="flex items-center gap-1.5 p-3 rounded-xl bg-brand-dark/30 border border-brand-border/20 text-[10px] text-brand-textSecondary">
-        <Info className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" />
-        <span>Hover nodes on the chart to read exact millibar barometric records. Data points represent direct OGC-compliant observation keys.</span>
+        {/* Trend indicator */}
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+            <TrendIcon className="w-3 h-3" style={{ color: trendColor }} />
+            <span className="text-[10px] font-mono capitalize" style={{ color: trendColor }}>{stats.trend}</span>
+          </div>
+          <span className="text-[9px] text-[#525252] font-mono">
+            {filtered.length} observations · {timeFilter === 'all' ? 'full dataset' : `last ${timeFilter}`}
+          </span>
+        </div>
       </div>
     </div>
   );

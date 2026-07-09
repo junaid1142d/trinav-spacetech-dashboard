@@ -2,268 +2,168 @@ import React, { useState, useMemo } from 'react';
 import { Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, Filter } from 'lucide-react';
 
 export default function DataTable({ dataset }) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
-  const [selectedStation, setSelectedStation] = useState('');
+  const [search, setSearch] = useState('');
+  const [city, setCity] = useState('');
+  const [station, setStation] = useState('');
   const [sortField, setSortField] = useState('Timestamp');
-  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 12;
 
-  // Get unique lists for dropdown filters
-  const filterOptions = useMemo(() => {
-    const cities = new Set();
-    const stations = new Set();
-    
-    dataset.forEach(d => {
-      if (d.City) cities.add(d.City);
-      if (d.Station) stations.add(d.Station);
-    });
-
-    return {
-      cities: Array.from(cities).sort(),
-      stations: Array.from(stations).sort()
-    };
+  const options = useMemo(() => {
+    const cities = [...new Set(dataset.map(d => d.City))].sort();
+    const stations = [...new Set(dataset.map(d => d.Station))].sort();
+    return { cities, stations };
   }, [dataset]);
 
-  // Handle Sort Toggle
   const handleSort = (field) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('desc'); // Default to desc for new fields
-    }
-    setCurrentPage(1);
+    if (sortField === field) setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortOrder('desc'); }
+    setPage(1);
   };
 
-  // Filter & Search dataset
-  const filteredData = useMemo(() => {
-    return dataset.filter(item => {
-      const matchSearch = 
-        item.Station.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.City.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.Pressure_hPa.toString().includes(searchTerm) ||
-        item.Timestamp.includes(searchTerm);
-      
-      const matchCity = !selectedCity || item.City === selectedCity;
-      const matchStation = !selectedStation || item.Station === selectedStation;
-
-      return matchSearch && matchCity && matchStation;
-    }).sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
-
-      // Handle numbers vs strings
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-
-      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [dataset, searchTerm, selectedCity, selectedStation, sortField, sortOrder]);
-
-  // Pagination Logic
-  const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredData, currentPage]);
-
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-
-  const handlePageChange = (page) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
-  // Export current filtered rows as CSV
-  const handleExportCSV = () => {
-    if (filteredData.length === 0) return;
-
-    const headers = ['Station', 'City', 'Latitude', 'Longitude', 'Timestamp', 'Pressure_hPa'];
-    const csvRows = [headers.join(',')];
-
-    filteredData.forEach(row => {
-      const values = headers.map(header => {
-        const val = row[header];
-        // Wrap strings containing commas in quotes
-        if (typeof val === 'string' && val.includes(',')) {
-          return `"${val}"`;
-        }
-        return val;
+  const filtered = useMemo(() => {
+    return dataset
+      .filter(item => {
+        const s = search.toLowerCase();
+        return (
+          (!s || item.Station.toLowerCase().includes(s) || item.City.toLowerCase().includes(s) || String(item.Pressure_hPa).includes(s)) &&
+          (!city || item.City === city) &&
+          (!station || item.Station === station)
+        );
+      })
+      .sort((a, b) => {
+        let av = a[sortField], bv = b[sortField];
+        if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+        if (av < bv) return sortOrder === 'asc' ? -1 : 1;
+        if (av > bv) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
       });
-      csvRows.push(values.join(','));
-    });
+  }, [dataset, search, city, station, sortField, sortOrder]);
 
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `trinav_filtered_telemetry_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const exportCSV = () => {
+    if (!filtered.length) return;
+    const headers = ['Station', 'City', 'Latitude', 'Longitude', 'Timestamp', 'Pressure_hPa'];
+    const rows = [headers.join(','), ...filtered.map(r =>
+      headers.map(h => {
+        const v = r[h];
+        return typeof v === 'string' && v.includes(',') ? `"${v}"` : v;
+      }).join(',')
+    )];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `trinav_export_${Date.now()}.csv`;
+    a.click();
   };
 
-  const SortIndicator = ({ field }) => {
+  const SortIcon = ({ field }) => {
     if (sortField !== field) return null;
-    return sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 inline ml-1" /> : <ChevronDown className="w-3.5 h-3.5 inline ml-1" />;
+    return sortOrder === 'asc' ? <ChevronUp className="w-3 h-3 inline ml-0.5" /> : <ChevronDown className="w-3 h-3 inline ml-0.5" />;
+  };
+
+  const getPressureColor = (p) => {
+    if (p < 1008) return '#22D3EE';
+    if (p > 1018) return '#EF4444';
+    return '#EAB308';
   };
 
   return (
-    <div className="glass-panel p-5 rounded-2xl border border-brand-border space-y-4">
-      {/* Table Filters header */}
-      <div className="flex flex-col xl:flex-row gap-3 xl:items-center justify-between">
-        <h4 className="text-sm font-bold text-white font-['Outfit'] uppercase tracking-wider select-none flex items-center gap-1.5">
-          <Filter className="w-4 h-4 text-brand-cyan" />
-          Observations Ledger
-        </h4>
-
-        {/* Filter controls panel */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 flex-1 xl:max-w-4xl xl:justify-end">
-          {/* Search bar */}
+    <div className="bg-[#0A0A0A] border border-white/[0.08] rounded-xl overflow-hidden">
+      {/* Filters */}
+      <div className="p-4 border-b border-white/[0.06] flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-[#737373]" />
+          <span className="text-sm font-semibold text-white">Observations Ledger</span>
+          <span className="text-[10px] text-[#525252] font-mono ml-1">({filtered.length.toLocaleString()} records)</span>
+        </div>
+        <div className="flex flex-wrap gap-2 flex-1 lg:justify-end">
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-brand-textMuted" />
+            <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-[#525252]" />
             <input
               type="text"
-              placeholder="Search station, city..."
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-9 pr-3 py-2 bg-brand-dark/60 border border-brand-border/60 hover:border-brand-cyan/40 focus:border-brand-cyan focus:ring-0 rounded-xl text-xs text-white placeholder-brand-textMuted font-mono transition-all"
+              placeholder="Search..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              className="pl-8 pr-3 py-1.5 bg-[#111] border border-white/[0.08] hover:border-white/20 focus:border-white/30 rounded-lg text-xs text-white placeholder-[#525252] font-mono outline-none transition-colors w-40"
             />
           </div>
-
-          {/* City dropdown */}
-          <div>
-            <select
-              value={selectedCity}
-              onChange={(e) => { setSelectedCity(e.target.value); setCurrentPage(1); }}
-              className="w-full px-3 py-2 bg-brand-dark/60 border border-brand-border/60 hover:border-brand-cyan/40 focus:border-brand-cyan focus:ring-0 rounded-xl text-xs text-white font-mono transition-all appearance-none cursor-pointer"
-            >
-              <option value="">All Cities</option>
-              {filterOptions.cities.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Station dropdown */}
-          <div>
-            <select
-              value={selectedStation}
-              onChange={(e) => { setSelectedStation(e.target.value); setCurrentPage(1); }}
-              className="w-full px-3 py-2 bg-brand-dark/60 border border-brand-border/60 hover:border-brand-cyan/40 focus:border-brand-cyan focus:ring-0 rounded-xl text-xs text-white font-mono transition-all appearance-none cursor-pointer truncate"
-            >
-              <option value="">All Stations</option>
-              {filterOptions.stations.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Export CSV Button */}
-          <button
-            onClick={handleExportCSV}
-            disabled={filteredData.length === 0}
-            className="w-full py-2 bg-brand-cyan/15 hover:bg-brand-cyan hover:text-brand-navy border border-brand-cyan/40 hover:border-brand-cyan disabled:opacity-40 disabled:hover:bg-brand-cyan/15 disabled:hover:text-brand-cyan text-brand-cyan font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
+          <select
+            value={city}
+            onChange={e => { setCity(e.target.value); setPage(1); }}
+            className="px-3 py-1.5 bg-[#111] border border-white/[0.08] rounded-lg text-xs text-white font-mono outline-none cursor-pointer hover:border-white/20 transition-colors appearance-none w-28"
           >
-            <Download className="w-3.5 h-3.5" />
-            Export CSV ({filteredData.length})
+            <option value="">All Cities</option>
+            {options.cities.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <button
+            onClick={exportCSV}
+            disabled={!filtered.length}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs font-bold rounded-lg disabled:opacity-30 hover:bg-white/90 transition-colors"
+          >
+            <Download className="w-3 h-3" />
+            Export
           </button>
         </div>
       </div>
 
-      {/* Responsive Ledger Grid */}
-      <div className="overflow-x-auto rounded-xl border border-brand-border/40">
-        <table className="w-full text-left border-collapse font-mono text-xs">
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs font-mono">
           <thead>
-            <tr className="bg-brand-dark/80 text-brand-textSecondary border-b border-brand-border/60 select-none">
-              <th 
-                onClick={() => handleSort('Station')} 
-                className="p-3.5 cursor-pointer hover:bg-white/5 transition-colors font-semibold"
-              >
-                Station <SortIndicator field="Station" />
-              </th>
-              <th 
-                onClick={() => handleSort('City')} 
-                className="p-3.5 cursor-pointer hover:bg-white/5 transition-colors font-semibold w-[150px]"
-              >
-                City <SortIndicator field="City" />
-              </th>
-              <th 
-                onClick={() => handleSort('Pressure_hPa')} 
-                className="p-3.5 cursor-pointer hover:bg-white/5 transition-colors font-semibold w-[150px]"
-              >
-                Pressure (hPa) <SortIndicator field="Pressure_hPa" />
-              </th>
-              <th 
-                onClick={() => handleSort('Timestamp')} 
-                className="p-3.5 cursor-pointer hover:bg-white/5 transition-colors font-semibold w-[180px]"
-              >
-                Timestamp <SortIndicator field="Timestamp" />
-              </th>
+            <tr className="border-b border-white/[0.06] text-[#525252] uppercase tracking-wider text-[9px]">
+              {[
+                { label: 'Station', field: 'Station' },
+                { label: 'City', field: 'City' },
+                { label: 'Pressure', field: 'Pressure_hPa' },
+                { label: 'Timestamp', field: 'Timestamp' },
+              ].map(col => (
+                <th
+                  key={col.field}
+                  onClick={() => handleSort(col.field)}
+                  className="px-4 py-3 text-left cursor-pointer hover:text-white transition-colors select-none"
+                >
+                  {col.label} <SortIcon field={col.field} />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {paginatedData.length === 0 ? (
+            {paginated.length === 0 ? (
               <tr>
-                <td colSpan="4" className="p-8 text-center text-brand-textMuted bg-brand-dark/10">
-                  No records match your query filters.
-                </td>
+                <td colSpan={4} className="px-4 py-10 text-center text-[#525252]">No records match your query.</td>
               </tr>
-            ) : (
-              paginatedData.map((item, index) => (
-                <tr 
-                  key={item.id || index}
-                  className="border-b border-brand-border/30 hover:bg-white/5 transition-colors text-white"
-                >
-                  <td className="p-3.5 font-sans font-medium text-white max-w-[280px] truncate">{item.Station}</td>
-                  <td className="p-3.5 text-brand-textSecondary">{item.City}</td>
-                  <td className="p-3.5 font-bold text-brand-cyan">{item.Pressure_hPa.toFixed(2)}</td>
-                  <td className="p-3.5 text-brand-textSecondary">{item.Timestamp}</td>
-                </tr>
-              ))
-            )}
+            ) : paginated.map((item, i) => (
+              <tr key={i} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                <td className="px-4 py-2.5 text-white font-sans font-medium text-[11px] max-w-[240px] truncate">{item.Station}</td>
+                <td className="px-4 py-2.5 text-[#737373]">{item.City}</td>
+                <td className="px-4 py-2.5 font-bold" style={{ color: getPressureColor(item.Pressure_hPa) }}>
+                  {Number(item.Pressure_hPa).toFixed(2)}
+                </td>
+                <td className="px-4 py-2.5 text-[#525252]">{item.Timestamp}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* Pagination controls */}
-      <div className="flex items-center justify-between text-xs select-none">
-        <span className="text-brand-textMuted font-mono">
-          Showing {filteredData.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} records
+      {/* Pagination */}
+      <div className="px-4 py-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono">
+        <span className="text-[#525252]">
+          {filtered.length ? `${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, filtered.length)} of ${filtered.length}` : '0 records'}
         </span>
-        
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="p-1.5 rounded-lg border border-brand-border bg-brand-dark/40 text-brand-textSecondary hover:text-white disabled:opacity-40 disabled:hover:text-brand-textSecondary transition-all"
-          >
-            <ChevronLeft className="w-4 h-4" />
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            className="p-1 rounded border border-white/[0.08] text-[#737373] hover:text-white disabled:opacity-30 transition-colors">
+            <ChevronLeft className="w-3.5 h-3.5" />
           </button>
-          
-          <div className="flex items-center font-mono font-semibold">
-            <span className="text-brand-cyan bg-brand-cyan/10 px-2.5 py-1 rounded-lg border border-brand-cyan/30">
-              {currentPage}
-            </span>
-            <span className="mx-2 text-brand-textMuted">/</span>
-            <span className="text-white px-2 py-1">
-              {totalPages}
-            </span>
-          </div>
-
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="p-1.5 rounded-lg border border-brand-border bg-brand-dark/40 text-brand-textSecondary hover:text-white disabled:opacity-40 disabled:hover:text-brand-textSecondary transition-all"
-          >
-            <ChevronRight className="w-4 h-4" />
+          <span className="px-2 text-white">{page} / {totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            className="p-1 rounded border border-white/[0.08] text-[#737373] hover:text-white disabled:opacity-30 transition-colors">
+            <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

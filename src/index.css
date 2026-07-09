@@ -2,175 +2,171 @@
 @import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
 
-:root {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color-scheme: dark;
-}
+/* ─── Global Reset ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background-color: #0B1020;
+  background: #000000;
   color: #FFFFFF;
+  font-family: 'Inter', system-ui, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* ─── Scrollbars ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #22D3EE; }
 
-::-webkit-scrollbar-track {
-  background: #0B1020;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #1E293B;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #22D3EE;
-}
-
-/* Glassmorphism Styles */
+/* ─── Glassmorphism Panels ──────────────────────────────────── */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 10, 10, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s ease;
 }
 
 .glass-panel-glow {
-  background: rgba(21, 29, 48, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(34, 211, 238, 0.15);
-  box-shadow: 0 0 15px rgba(34, 211, 238, 0.05), inset 0 0 20px rgba(34, 211, 238, 0.02);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(12, 12, 12, 0.85);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 60px rgba(34, 211, 238, 0.04);
 }
 
 .glass-panel-glow:hover {
-  border-color: rgba(34, 211, 238, 0.3);
-  box-shadow: 0 0 25px rgba(34, 211, 238, 0.12), inset 0 0 20px rgba(34, 211, 238, 0.04);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Custom Leaflet Dark Theme Overrides */
-.leaflet-container {
-  background: #0B1020 !important;
-  font-family: inherit !important;
+/* ─── Buttons ───────────────────────────────────────────────── */
+.btn-primary {
+  background: #FFFFFF;
+  color: #000000;
+  font-weight: 700;
+  border: none;
+  transition: all 0.2s ease;
 }
+.btn-primary:hover { background: #E5E5E5; }
+
+.btn-outline {
+  background: transparent;
+  color: #FFFFFF;
+  border: 1px solid rgba(255,255,255,0.2);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-outline:hover {
+  border-color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.05);
+}
+
+.btn-cyan {
+  background: rgba(34,211,238,0.15);
+  color: #22D3EE;
+  border: 1px solid rgba(34,211,238,0.35);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-cyan:hover {
+  background: #22D3EE;
+  color: #000;
+  box-shadow: 0 0 20px rgba(34,211,238,0.3);
+}
+
+/* ─── Leaflet Map Dark Overrides ────────────────────────────── */
+.leaflet-container { background: #030303 !important; }
 
 .leaflet-popup-content-wrapper {
-  background: rgba(11, 16, 32, 0.95) !important;
+  background: rgba(10, 10, 10, 0.97) !important;
   color: #FFFFFF !important;
-  border: 1px solid rgba(34, 211, 238, 0.3) !important;
-  backdrop-filter: blur(8px) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8) !important;
 }
 
-.leaflet-popup-tip {
-  background: rgba(11, 16, 32, 0.95) !important;
-  border-left: 1px solid rgba(34, 211, 238, 0.3) !important;
-  border-bottom: 1px solid rgba(34, 211, 238, 0.3) !important;
-}
+.leaflet-popup-tip { background: rgba(10,10,10,0.97) !important; }
 
 .leaflet-bar {
-  border: 1px solid rgba(34, 211, 238, 0.2) !important;
-  border-radius: 6px !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 8px !important;
   overflow: hidden;
+  background: rgba(10,10,10,0.9) !important;
 }
-
 .leaflet-bar a {
-  background-color: rgba(15, 23, 42, 0.8) !important;
-  color: #22D3EE !important;
-  border-bottom: 1px solid rgba(34, 211, 238, 0.2) !important;
+  background-color: rgba(10,10,10,0.9) !important;
+  color: #FFFFFF !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  font-size: 16px;
+  line-height: 26px;
   transition: all 0.2s;
 }
-
 .leaflet-bar a:hover {
-  background-color: #22D3EE !important;
-  color: #0B1020 !important;
+  background-color: rgba(255,255,255,0.1) !important;
+  color: #22D3EE !important;
+}
+.leaflet-control-attribution { display: none !important; }
+
+/* ─── Pulsing Markers ───────────────────────────────────────── */
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 0.4; }
+  100% { transform: scale(0.9); opacity: 0.8; }
 }
 
-/* Pulsing Leaflet Marker Animations */
-@keyframes marker-pulse-blue {
-  0% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.7); }
-  70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 10px rgba(34, 211, 238, 0); }
-  100% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
-}
+.pulse-marker-blue  { animation: pulse-ring 2.2s infinite; }
+.pulse-marker-yellow { animation: pulse-ring 2.5s infinite 0.3s; }
+.pulse-marker-red   { animation: pulse-ring 2s infinite 0.6s; }
 
-@keyframes marker-pulse-yellow {
-  0% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
-  70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
-  100% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
-}
+/* ─── Charts - Recharts Overrides ───────────────────────────── */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line { stroke: rgba(255,255,255,0.04) !important; }
 
-@keyframes marker-pulse-red {
-  0% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-  70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-  100% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
+.recharts-tooltip-wrapper { z-index: 1000; }
 
-.pulse-marker-blue {
-  background: #22D3EE;
-  border: 2px solid #FFFFFF;
-  border-radius: 50%;
-  animation: marker-pulse-blue 2s infinite;
-}
+.recharts-text { fill: #737373 !important; font-family: 'JetBrains Mono', monospace; }
 
-.pulse-marker-yellow {
-  background: #EAB308;
-  border: 2px solid #FFFFFF;
-  border-radius: 50%;
-  animation: marker-pulse-yellow 2s infinite;
-}
-
-.pulse-marker-red {
-  background: #EF4444;
-  border: 2px solid #FFFFFF;
-  border-radius: 50%;
-  animation: marker-pulse-red 2s infinite;
-}
-
-/* Glassmorphism buttons */
-.btn-glass {
-  background: rgba(34, 211, 238, 0.1);
-  border: 1px solid rgba(34, 211, 238, 0.3);
+/* ─── Link Hover Effect ─────────────────────────────────────── */
+.linkedin-link {
   color: #22D3EE;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.linkedin-link:hover {
+  color: #FFFFFF;
+  border-bottom-color: #22D3EE;
 }
 
-.btn-glass:hover:not(:disabled) {
-  background: rgba(34, 211, 238, 0.2);
-  border-color: #22D3EE;
-  box-shadow: 0 0 12px rgba(34, 211, 238, 0.3);
-  transform: translateY(-1px);
-}
+/* ─── Page transition ───────────────────────────────────────── */
+.page-enter { opacity: 0; transform: translateY(12px); }
+.page-exit  { opacity: 0; transform: translateY(-8px); }
 
-.btn-glass:active:not(:disabled) {
-  transform: translateY(0);
-}
+/* ─── OGC Request Inspector ─────────────────────────────────── */
+.request-log-success { border-left: 2px solid #22C55E; }
+.request-log-error   { border-left: 2px solid #EF4444; }
+.request-log-pending { border-left: 2px solid #F59E0B; }
 
-.btn-glass:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* ─── Glow Animations ───────────────────────────────────────── */
+@keyframes glow-text {
+  0%, 100% { text-shadow: 0 0 10px rgba(34,211,238,0.3); }
+  50%       { text-shadow: 0 0 25px rgba(34,211,238,0.6); }
 }
+.animate-glow { animation: glow-text 3s ease-in-out infinite; }
 
-/* Tailwind animations */
-.animate-glow-pulse {
-  animation: glow-pulse 3s infinite alternate;
-}
-
-@keyframes glow-pulse {
-  0% {
-    text-shadow: 0 0 5px rgba(34, 211, 238, 0.2), 0 0 10px rgba(34, 211, 238, 0.1);
-  }
-  100% {
-    text-shadow: 0 0 15px rgba(34, 211, 238, 0.6), 0 0 30px rgba(34, 211, 238, 0.3);
-  }
+/* ─── WMS Loading Overlay ───────────────────────────────────── */
+.wms-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
 }

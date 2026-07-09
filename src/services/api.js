@@ -1,131 +1,155 @@
-import axios from 'axios';
-import Papa from 'papaparse';
-
-// Base URL placeholder for future Azure Functions / ADX endpoints
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-
 /**
- * FUTURE AZURE API INTEGRATION INTERFACES
- * Currently, these are prepared with placeholder implementations that log requests
- * and fallback to client-side data operations.
+ * OGC Service Manager
+ * Handles WMS (NASA GIBS) and WFS (GeoServer) requests
+ * Implements GetCapabilities, GetMap, GetFeature, DescribeFeatureType
  */
 
-export const apiService = {
-  /**
-   * GET /api/stations
-   * OGC SensorThings: Datastreams / Things with Location
-   */
-  async getStations() {
-    console.log(`[Azure API Call Placeholder] GET ${API_BASE_URL}/stations`);
-    // In production with backend, uncomment below:
-    // const response = await axios.get(`${API_BASE_URL}/stations`);
-    // return response.data;
-    return null; // Return null so frontend knows to use CSV/mock state
+export const OGC_SERVICES = {
+  NASA_GIBS: {
+    name: 'NASA GIBS (WMS)',
+    url: 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi',
+    type: 'WMS',
+    version: '1.3.0',
   },
-
-  /**
-   * GET /api/station/{id}
-   * OGC SensorThings: Retrieve details of specific Datastream/Thing
-   */
-  async getStationById(id) {
-    console.log(`[Azure API Call Placeholder] GET ${API_BASE_URL}/station/${id}`);
-    // const response = await axios.get(`${API_BASE_URL}/station/${id}`);
-    // return response.data;
-    return null;
+  GEOSERVER: {
+    name: 'GeoServer WFS Demo',
+    url: 'https://ahocevar.com/geoserver/wfs',
+    type: 'WFS',
+    version: '2.0.0',
   },
-
-  /**
-   * GET /api/timeseries/{id}
-   * OGC SensorThings: Retrieve Observations for specific Datastream
-   */
-  async getTimeseries(id, params = {}) {
-    console.log(`[Azure API Call Placeholder] GET ${API_BASE_URL}/timeseries/${id}`, params);
-    // const response = await axios.get(`${API_BASE_URL}/timeseries/${id}`, { params });
-    // return response.data;
-    return null;
-  }
 };
 
-/**
- * CLIENT-SIDE CSV PARSING & DATA HANDLING
- */
+// Request log store (module-level reactive array)
+export const requestLogs = [];
+let logListeners = [];
+export const onRequestLog = (fn) => { logListeners.push(fn); return () => { logListeners = logListeners.filter(l => l !== fn); }; };
+const pushLog = (log) => { requestLogs.unshift({ ...log, id: Date.now() + Math.random() }); if (requestLogs.length > 50) requestLogs.pop(); logListeners.forEach(fn => fn([...requestLogs])); };
 
-export const parseCSVData = (file, onProgress, onComplete, onError) => {
+// Fetch with timing, error handling, and logging
+async function timedFetch(url, label, signal) {
+  const start = Date.now();
+  pushLog({ url, label, status: 'pending', duration: null, size: null, ts: new Date().toISOString() });
+  try {
+    const res = await fetch(url, { signal });
+    const duration = Date.now() - start;
+    const text = await res.text();
+    const size = new Blob([text]).size;
+    pushLog({ url, label, status: res.ok ? 'success' : 'error', httpStatus: res.status, duration, size, ts: new Date().toISOString() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return text;
+  } catch (err) {
+    const duration = Date.now() - start;
+    pushLog({ url, label, status: 'error', httpStatus: null, duration, size: null, error: err.message, ts: new Date().toISOString() });
+    throw err;
+  }
+}
+
+// ─── WMS: Parse GetCapabilities ─────────────────────────────
+export async function wmsGetCapabilities(serviceUrl, signal) {
+  const url = `${serviceUrl}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities`;
+  const xml = await timedFetch(url, 'WMS GetCapabilities', signal);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'application/xml');
+
+  const layerNodes = doc.querySelectorAll('Layer > Layer');
+  const layers = [];
+  layerNodes.forEach(node => {
+    const name = node.querySelector(':scope > Name')?.textContent?.trim();
+    const title = node.querySelector(':scope > Title')?.textContent?.trim();
+    const abstract = node.querySelector(':scope > Abstract')?.textContent?.trim() || '';
+    if (name && title) {
+      layers.push({ name, title, abstract, serviceUrl, type: 'WMS' });
+    }
+  });
+  return layers;
+}
+
+// ─── WFS: Parse GetCapabilities ─────────────────────────────
+export async function wfsGetCapabilities(serviceUrl, signal) {
+  const url = `${serviceUrl}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities`;
+  const xml = await timedFetch(url, 'WFS GetCapabilities', signal);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'application/xml');
+
+  const featureTypes = doc.querySelectorAll('FeatureType');
+  const layers = [];
+  featureTypes.forEach(ft => {
+    const name = ft.querySelector('Name')?.textContent?.trim();
+    const title = ft.querySelector('Title')?.textContent?.trim();
+    const abstract = ft.querySelector('Abstract')?.textContent?.trim() || '';
+    if (name && title) {
+      layers.push({ name, title, abstract, serviceUrl, type: 'WFS' });
+    }
+  });
+  return layers;
+}
+
+// ─── WFS: GetFeature (GeoJSON, BBOX) ────────────────────────
+export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatures = 200) {
+  const bboxStr = bbox ? `&BBOX=${bbox},EPSG:4326` : '';
+  const url = `${serviceUrl}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=${typeName}&OUTPUTFORMAT=application/json&COUNT=${maxFeatures}${bboxStr}`;
+  const text = await timedFetch(url, `WFS GetFeature: ${typeName}`, signal);
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('Invalid GeoJSON response from WFS');
+  }
+}
+
+// ─── WMS: Build GetMap URL ───────────────────────────────────
+export function buildWmsGetMapUrl(serviceUrl, layerName, bbox, width = 256, height = 256, crs = 'EPSG:3857') {
+  return `${serviceUrl}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${layerName}&BBOX=${bbox}&WIDTH=${width}&HEIGHT=${height}&CRS=${crs}&FORMAT=image/png&TRANSPARENT=TRUE&STYLES=`;
+}
+
+// ─── CSV Parser ──────────────────────────────────────────────
+import Papa from 'papaparse';
+
+export const parseCSVData = (file, onComplete, onError) => {
   Papa.parse(file, {
     header: true,
     dynamicTyping: true,
     skipEmptyLines: true,
-    chunk: (results, parser) => {
-      // Stream parsing if required for large datasets
-    },
-    complete: (results) => {
-      onComplete(results.data);
-    },
-    error: (error) => {
-      onError(error);
-    }
+    complete: (results) => onComplete(results.data),
+    error: (error) => onError(error),
   });
 };
 
 export const validateCSVColumns = (headers) => {
   const required = ['Station', 'City', 'Latitude', 'Longitude', 'Timestamp', 'Pressure_hPa'];
-  const missing = required.filter(field => !headers.includes(field));
-  return {
-    isValid: missing.length === 0,
-    missingFields: missing
-  };
+  const missing = required.filter(f => !headers.includes(f));
+  return { isValid: missing.length === 0, missingFields: missing };
 };
 
-/**
- * Helper to compute general metrics from a dataset
- */
 export const calculateMetrics = (observations) => {
   if (!observations || observations.length === 0) {
-    return {
-      totalRecords: 0,
-      totalStations: 0,
-      avgPressure: 0,
-      minPressure: 0,
-      maxPressure: 0,
-      dateRange: { start: '-', end: '-' }
-    };
+    return { totalRecords: 0, totalStations: 0, avgPressure: 0, minPressure: 0, maxPressure: 0, dateRange: { start: '-', end: '-' } };
   }
-
   const stations = new Set();
-  let totalPressure = 0;
-  let minPressure = Infinity;
-  let maxPressure = -Infinity;
-  let minDate = new Date('9999-12-31');
-  let maxDate = new Date('1000-01-01');
-
+  let total = 0, minP = Infinity, maxP = -Infinity;
+  let minDate = new Date('9999-12-31'), maxDate = new Date('1000-01-01');
   observations.forEach(obs => {
     stations.add(obs.Station);
-    const press = obs.Pressure_hPa;
-    if (press < minPressure) minPressure = press;
-    if (press > maxPressure) maxPressure = press;
-    totalPressure += press;
-
-    const date = new Date(obs.Timestamp);
-    if (!isNaN(date.getTime())) {
-      if (date < minDate) minDate = date;
-      if (date > maxDate) maxDate = date;
-    }
+    const p = obs.Pressure_hPa;
+    if (p < minP) minP = p;
+    if (p > maxP) maxP = p;
+    total += p;
+    const d = new Date(obs.Timestamp);
+    if (!isNaN(d)) { if (d < minDate) minDate = d; if (d > maxDate) maxDate = d; }
   });
-
-  const formatDate = (d) => {
-    if (d.getFullYear() === 9999 || d.getFullYear() === 1000) return '-';
-    return d.toISOString().split('T')[0];
-  };
-
+  const fmt = (d) => d.getFullYear() === 9999 || d.getFullYear() === 1000 ? '-' : d.toISOString().split('T')[0];
   return {
     totalRecords: observations.length,
     totalStations: stations.size,
-    avgPressure: parseFloat((totalPressure / observations.length).toFixed(2)),
-    minPressure: minPressure === Infinity ? 0 : minPressure,
-    maxPressure: maxPressure === -Infinity ? 0 : maxPressure,
-    dateRange: {
-      start: formatDate(minDate),
-      end: formatDate(maxDate)
-    }
+    avgPressure: parseFloat((total / observations.length).toFixed(2)),
+    minPressure: minP === Infinity ? 0 : minP,
+    maxPressure: maxP === -Infinity ? 0 : maxP,
+    dateRange: { start: fmt(minDate), end: fmt(maxDate) },
   };
+};
+
+// Future Azure API placeholders
+export const apiService = {
+  async getStations() { console.log('[Azure Placeholder] GET /api/stations'); return null; },
+  async getStationById(id) { console.log(`[Azure Placeholder] GET /api/station/${id}`); return null; },
+  async getTimeseries(id, params = {}) { console.log(`[Azure Placeholder] GET /api/timeseries/${id}`, params); return null; },
 };

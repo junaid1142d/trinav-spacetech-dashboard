@@ -1,121 +1,110 @@
-import React from 'react';
-import { Settings, RefreshCcw, Sliders, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings, RefreshCw, Info } from 'lucide-react';
 
-export default function SettingsPage({ 
-  pressureThresholds, 
-  setPressureThresholds, 
-  pressureUnit, 
-  setPressureUnit, 
-  onResetToDefault 
-}) {
-  const handleThresholdChange = (key, value) => {
-    const parsedVal = parseFloat(value);
-    if (!isNaN(parsedVal)) {
-      setPressureThresholds(prev => ({
-        ...prev,
-        [key]: parsedVal
-      }));
+export default function SettingsPage({ pressureThresholds, setPressureThresholds, pressureUnit, setPressureUnit, onResetToDefault }) {
+  const [localLow, setLocalLow] = useState(String(pressureThresholds.low));
+  const [localHigh, setLocalHigh] = useState(String(pressureThresholds.high));
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    const low = parseFloat(localLow);
+    const high = parseFloat(localHigh);
+    if (!isNaN(low) && !isNaN(high) && low < high) {
+      setPressureThresholds({ low, high });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     }
   };
 
+  const UNITS = [
+    { id: 'hPa', label: 'Hectopascal (hPa)', desc: 'Standard meteorological unit' },
+    { id: 'inHg', label: 'Inches of Mercury (inHg)', desc: 'Aviation & maritime standard' },
+    { id: 'mmHg', label: 'Millimeters of Mercury (mmHg)', desc: 'Scientific / physics unit' },
+  ];
+
   return (
-    <div className="space-y-6 select-none">
-      {/* Page Header */}
-      <div className="flex justify-between items-center bg-brand-navy/60 px-6 py-4 border border-brand-border/40 rounded-2xl">
+    <div className="space-y-5 max-w-2xl">
+      {/* Header */}
+      <div className="flex justify-between items-center px-5 py-3 bg-[#0A0A0A] border border-white/[0.08] rounded-xl">
         <div>
-          <span className="text-[10px] text-brand-textMuted uppercase font-mono tracking-wider block">SYSTEM PREFERENCES</span>
-          <h2 className="text-xl font-extrabold text-white font-['Outfit']">Settings & Controls</h2>
+          <p className="text-[9px] text-[#525252] font-mono uppercase tracking-wider">Configuration</p>
+          <h2 className="text-xl font-bold text-white font-display">Settings</h2>
         </div>
-        <div className="w-9 h-9 rounded-xl bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan shadow-cyan-glow">
-          <Settings className="w-5 h-5" />
-        </div>
+        <Settings className="w-5 h-5 text-[#737373]" />
       </div>
 
-      {/* Threshold configuration card */}
-      <div className="glass-panel p-6 rounded-2xl border border-brand-border space-y-4">
-        <div className="flex items-center gap-2 border-b border-brand-border/30 pb-3">
-          <Sliders className="w-4.5 h-4.5 text-brand-cyan" />
-          <h4 className="font-bold text-sm uppercase tracking-wider font-['Outfit'] text-white">Barometric Index Thresholds</h4>
-        </div>
-        
-        <p className="text-brand-textSecondary text-xs leading-relaxed max-w-2xl">
-          Adjust the barometric pressure limits (in hPa) to change map color-coding indexes. 
-          Stations below the Low boundary display as Blue, and above the High boundary display as Red.
+      {/* Thresholds */}
+      <div className="bg-[#0A0A0A] border border-white/[0.08] rounded-xl p-5 space-y-4">
+        <h4 className="text-sm font-semibold text-white border-b border-white/[0.06] pb-3">Pressure Thresholds</h4>
+        <p className="text-[11px] text-[#525252] font-mono leading-relaxed">
+          Stations below the Low threshold display as blue; above the High threshold display as red.
         </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
-          <div className="space-y-2">
-            <label className="text-xs text-brand-textSecondary font-mono block">Low Pressure Threshold (hPa)</label>
-            <input 
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-[#737373] font-mono uppercase tracking-wider block">Low Pressure (hPa)</label>
+            <input
               type="number"
-              value={pressureThresholds.low}
-              onChange={(e) => handleThresholdChange('low', e.target.value)}
-              className="w-full px-3.5 py-2 bg-brand-dark/60 border border-brand-border/60 hover:border-brand-cyan/40 focus:border-brand-cyan focus:ring-0 rounded-xl text-xs text-white font-mono transition-all"
+              value={localLow}
+              onChange={e => setLocalLow(e.target.value)}
+              className="w-full px-3 py-2 bg-[#111] border border-white/[0.08] hover:border-white/20 focus:border-white/30 rounded-lg text-sm text-white font-mono outline-none transition-colors"
             />
           </div>
-
-          <div className="space-y-2">
-            <label className="text-xs text-brand-textSecondary font-mono block">High Pressure Threshold (hPa)</label>
-            <input 
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-[#737373] font-mono uppercase tracking-wider block">High Pressure (hPa)</label>
+            <input
               type="number"
-              value={pressureThresholds.high}
-              onChange={(e) => handleThresholdChange('high', e.target.value)}
-              className="w-full px-3.5 py-2 bg-brand-dark/60 border border-brand-border/60 hover:border-brand-cyan/40 focus:border-brand-cyan focus:ring-0 rounded-xl text-xs text-white font-mono transition-all"
+              value={localHigh}
+              onChange={e => setLocalHigh(e.target.value)}
+              className="w-full px-3 py-2 bg-[#111] border border-white/[0.08] hover:border-white/20 focus:border-white/30 rounded-lg text-sm text-white font-mono outline-none transition-colors"
             />
           </div>
         </div>
+        <button onClick={handleSave}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${saved ? 'bg-[#22C55E] text-black' : 'bg-white text-black hover:bg-white/90'}`}>
+          {saved ? '✓ Saved' : 'Apply Thresholds'}
+        </button>
       </div>
 
-      {/* Unit system configuration */}
-      <div className="glass-panel p-6 rounded-2xl border border-brand-border space-y-4">
-        <h4 className="font-bold text-sm uppercase tracking-wider font-['Outfit'] text-white border-b border-brand-border/30 pb-3">Display Measurement Unit</h4>
-        <p className="text-brand-textSecondary text-xs leading-relaxed max-w-2xl">
-          Choose the preferred scale for pressure reporting across charts, tables, and map tooltips.
-        </p>
-        
-        <div className="flex flex-wrap gap-2.5 pt-2">
-          {[
-            { id: 'hPa', label: 'Hectopascal (hPa)', desc: 'Standard meteorological unit' },
-            { id: 'inHg', label: 'Inches of Mercury (inHg)', desc: 'Common aviation / maritime unit' },
-            { id: 'mmHg', label: 'Millimeters of Mercury (mmHg)', desc: 'Scientific / physics pressure unit' }
-          ].map((unit) => (
+      {/* Units */}
+      <div className="bg-[#0A0A0A] border border-white/[0.08] rounded-xl p-5 space-y-4">
+        <h4 className="text-sm font-semibold text-white border-b border-white/[0.06] pb-3">Display Unit</h4>
+        <div className="space-y-2">
+          {UNITS.map(u => (
             <button
-              key={unit.id}
-              onClick={() => setPressureUnit(unit.id)}
-              className={`flex-1 min-w-[200px] text-left p-4 rounded-xl border transition-all ${
-                pressureUnit === unit.id 
-                  ? 'bg-brand-cyan/10 border-brand-cyan text-white shadow-cyan-glow' 
-                  : 'bg-brand-dark/40 border-brand-border/60 text-brand-textSecondary hover:border-brand-cyan/30 hover:text-white'
+              key={u.id}
+              onClick={() => setPressureUnit(u.id)}
+              className={`w-full text-left flex items-center justify-between p-3.5 rounded-xl border transition-all ${
+                pressureUnit === u.id
+                  ? 'bg-white text-black border-white'
+                  : 'bg-[#111] border-white/[0.08] text-[#737373] hover:border-white/20 hover:text-white'
               }`}
             >
-              <span className="text-xs font-bold font-mono block">{unit.label}</span>
-              <span className="text-[10px] text-brand-textMuted font-sans block mt-1">{unit.desc}</span>
+              <div>
+                <p className="text-xs font-bold">{u.label}</p>
+                <p className={`text-[10px] font-mono ${pressureUnit === u.id ? 'text-[#525252]' : 'text-[#404040]'}`}>{u.desc}</p>
+              </div>
+              {pressureUnit === u.id && <span className="text-sm">✓</span>}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Factory Reset controls */}
-      <div className="glass-panel p-6 rounded-2xl border border-red-500/10 space-y-4">
-        <h4 className="font-bold text-sm uppercase tracking-wider font-['Outfit'] text-white border-b border-red-500/10 pb-3">Platform Maintenance</h4>
-        <p className="text-brand-textSecondary text-xs leading-relaxed max-w-2xl">
-          Reset all local modifications and clear the active uploaded telemetry cache, restoring the default 30-day mock observations for Tamil Nadu weather stations.
+      {/* Reset */}
+      <div className="bg-[#0A0A0A] border border-white/[0.08] rounded-xl p-5 space-y-3">
+        <h4 className="text-sm font-semibold text-white border-b border-white/[0.06] pb-3">Maintenance</h4>
+        <p className="text-[11px] text-[#525252] font-mono leading-relaxed">
+          Resets all settings and restores the default Tamil Nadu 30-day mock atmospheric dataset.
         </p>
-
-        <div className="pt-2 select-none">
-          <button 
-            onClick={onResetToDefault}
-            className="px-5 py-2.5 bg-red-950/20 hover:bg-red-500 border border-red-500/40 hover:border-red-500 text-red-300 hover:text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-sm cursor-pointer"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Restore Default Tamil Nadu Dataset
-          </button>
-        </div>
+        <button onClick={onResetToDefault}
+          className="flex items-center gap-2 px-4 py-2 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-black text-xs font-bold rounded-lg transition-all">
+          <RefreshCw className="w-3.5 h-3.5" /> Restore Defaults
+        </button>
       </div>
 
-      <div className="flex items-center gap-1.5 p-3 rounded-xl bg-brand-dark/30 border border-brand-border/20 text-[10px] text-brand-textSecondary">
-        <Info className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" />
-        <span>Changes made here are applied instantly to the client execution thread and persist until page reload.</span>
+      {/* Info */}
+      <div className="flex items-start gap-2 px-4 py-3 bg-[#0A0A0A] border border-white/[0.06] rounded-xl text-[10px] text-[#525252] font-mono">
+        <Info className="w-3.5 h-3.5 flex-shrink-0 text-[#22D3EE] mt-0.5" />
+        <span>Settings apply immediately to the active dataset. Unit changes convert all displayed pressure values. No server-side persistence in this client-only build.</span>
       </div>
     </div>
   );

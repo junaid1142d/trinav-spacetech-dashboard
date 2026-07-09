@@ -1,163 +1,114 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldAlert, TrendingDown, Thermometer, Wind, ChevronRight } from 'lucide-react';
+import { ShieldAlert, TrendingDown, ChevronRight, Upload } from 'lucide-react';
 import DashboardOverview from '../components/DashboardOverview';
 import DataIngestion from '../components/DataIngestion';
 
+const LINKEDIN = 'https://www.linkedin.com/in/junaid-ahmed-442025280/';
+
 export default function Dashboard({ dataset, onDataLoaded, setActivePage }) {
-  // Sort and extract anomalous nodes (Low/High pressure outliers)
   const anomalies = useMemo(() => {
-    if (!dataset || dataset.length === 0) return { low: [], high: [] };
-    
-    // Get the latest reading for each station
-    const stationMap = new Map();
+    if (!dataset?.length) return { low: [], high: [] };
+    const latest = new Map();
     dataset.forEach(obs => {
-      const existing = stationMap.get(obs.Station);
-      if (!existing || new Date(obs.Timestamp) > new Date(existing.Timestamp)) {
-        stationMap.set(obs.Station, obs);
-      }
+      const ex = latest.get(obs.Station);
+      if (!ex || new Date(obs.Timestamp) > new Date(ex.Timestamp)) latest.set(obs.Station, obs);
     });
-
-    const latestReadings = Array.from(stationMap.values());
-    
-    const sortedLow = [...latestReadings]
-      .filter(obs => obs.Pressure_hPa < 1008)
-      .sort((a, b) => a.Pressure_hPa - b.Pressure_hPa)
-      .slice(0, 3);
-
-    const sortedHigh = [...latestReadings]
-      .filter(obs => obs.Pressure_hPa > 1018)
-      .sort((a, b) => b.Pressure_hPa - a.Pressure_hPa)
-      .slice(0, 3);
-
-    return { low: sortedLow, high: sortedHigh };
+    const readings = [...latest.values()];
+    return {
+      low: readings.filter(o => o.Pressure_hPa < 1008).sort((a, b) => a.Pressure_hPa - b.Pressure_hPa).slice(0, 3),
+      high: readings.filter(o => o.Pressure_hPa > 1018).sort((a, b) => b.Pressure_hPa - a.Pressure_hPa).slice(0, 3),
+    };
   }, [dataset]);
 
   return (
-    <div className="space-y-8 select-none">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-3xl glass-panel-glow border border-brand-border/40 p-8 md:p-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        {/* Animated Background Mesh */}
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(34,211,238,0.08),rgba(255,255,255,0))] pointer-events-none" />
-
-        <div className="space-y-4 max-w-2xl relative z-10">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] tracking-[0.25em] font-mono text-brand-cyan uppercase bg-brand-cyan/10 border border-brand-cyan/30 px-2 py-0.5 rounded">
-              Telemetry Status: Active
-            </span>
+    <div className="space-y-8">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#080808] p-8 md:p-10">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(34,211,238,0.04),transparent_60%)] pointer-events-none" />
+        <div className="relative flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-white/[0.04] border border-white/[0.08] rounded-full text-[9px] font-mono text-[#737373] uppercase tracking-widest">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+              Telemetry Active
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight font-display">TRINAV SPACETECH</h1>
+            <p className="text-lg text-[#737373] font-display">Atmospheric Pressure Monitoring Dashboard</p>
+            <p className="text-sm text-[#525252] leading-relaxed max-w-xl">
+              Real-time geospatial atmospheric monitoring powered by Azure Data Explorer and OGC SensorThings-compatible architecture.
+            </p>
+            <div className="text-[11px] text-[#404040] font-mono">
+              Developed by{' '}
+              <a href={LINKEDIN} target="_blank" rel="noopener noreferrer" className="linkedin-link">Junaid Ahmed ↗</a>
+            </div>
           </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white font-['Outfit']">
-            TRINAV SPACETECH
-          </h1>
-          <p className="text-xl md:text-2xl font-semibold text-brand-blue/90 font-['Outfit']">
-            Atmospheric Pressure Monitoring Dashboard
-          </p>
-          <p className="text-brand-textSecondary text-sm leading-relaxed max-w-xl">
-            Real-time geospatial atmospheric monitoring powered by Azure Data Explorer and OGC SensorThings-compatible architecture. Instantly ingest, visualize, and query barometric readings.
-          </p>
-          
-          <div className="flex gap-4 pt-2">
-            <button 
-              onClick={() => setActivePage('map')}
-              className="px-5 py-2.5 rounded-xl bg-brand-cyan hover:bg-brand-cyan/80 text-brand-navy font-bold text-xs flex items-center gap-2 transition-all shadow-cyan-glow cursor-pointer"
-            >
-              Launch Interactive Map
-              <ChevronRight className="w-4 h-4" />
+          <div className="flex flex-col gap-2">
+            <button onClick={() => setActivePage('map')}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-black text-sm font-bold rounded-xl hover:bg-white/90 transition-colors">
+              Open Map <ChevronRight className="w-4 h-4" />
+            </button>
+            <button onClick={() => setActivePage('ogc')}
+              className="flex items-center gap-2 px-5 py-2 border border-white/15 text-[#737373] hover:text-white text-xs font-semibold rounded-xl transition-colors">
+              OGC Services
             </button>
           </div>
         </div>
-
-        {/* Tech Badges Stack */}
-        <div className="flex flex-wrap md:flex-col gap-2.5 items-end justify-start h-full select-none">
-          <div className="px-3 py-1.5 rounded-lg bg-brand-dark/80 border border-brand-border/40 text-[9px] font-mono text-white flex items-center gap-1.5 shadow-inner">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-cyan animate-pulse"></span>
-            OGC SENSORTHINGS COMPATIBLE
-          </div>
-          <div className="px-3 py-1.5 rounded-lg bg-brand-dark/80 border border-brand-border/40 text-[9px] font-mono text-white flex items-center gap-1.5 shadow-inner">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-blue animate-pulse"></span>
-            AZURE DATA EXPLORER READY
-          </div>
-          <div className="px-3 py-1.5 rounded-lg bg-brand-dark/80 border border-brand-border/40 text-[9px] font-mono text-white flex items-center gap-1.5 shadow-inner">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-            QGIS LAYER COMPATIBLE
-          </div>
+        {/* Badges */}
+        <div className="relative mt-6 flex flex-wrap gap-2">
+          {['OGC SensorThings Compatible', 'Azure Data Explorer Ready', 'QGIS Compatible', 'React + Leaflet'].map(b => (
+            <span key={b} className="px-2.5 py-1 rounded-md border border-white/[0.08] text-[9px] font-mono text-[#525252] bg-white/[0.02]">{b}</span>
+          ))}
         </div>
       </div>
 
-      {/* CSV Ingest Panel */}
-      <section className="space-y-4">
-        <h3 className="text-white text-base font-bold uppercase tracking-wider font-['Outfit'] border-l-2 border-brand-cyan pl-3 select-none">
-          Data Ingestion Control
-        </h3>
+      {/* CSV Ingestion */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 border-l-2 border-white pl-3">
+          <Upload className="w-4 h-4 text-[#737373]" />
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Data Ingestion</h3>
+        </div>
         <DataIngestion onDataLoaded={onDataLoaded} currentDataset={dataset} />
       </section>
 
-      {/* KPI Cards Overview */}
-      <section className="space-y-4">
-        <h3 className="text-white text-base font-bold uppercase tracking-wider font-['Outfit'] border-l-2 border-brand-cyan pl-3 select-none">
-          System Overview Metrics
-        </h3>
+      {/* KPIs */}
+      <section className="space-y-3">
+        <div className="border-l-2 border-white pl-3">
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">System Metrics</h3>
+        </div>
         <DashboardOverview dataset={dataset} />
       </section>
 
-      {/* Weather Warnings & Outlier Alerts */}
-      {dataset && dataset.length > 0 && (
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 select-none">
-          {/* Low Pressure Alerts */}
-          <div className="glass-panel p-5 rounded-2xl border border-blue-500/20">
-            <div className="flex items-center gap-2 border-b border-brand-border/30 pb-3 mb-4 text-brand-cyan">
-              <TrendingDown className="w-5 h-5 text-brand-cyan" />
-              <h4 className="font-bold text-sm uppercase tracking-wider font-['Outfit'] text-white">Low-Pressure Storm Watch</h4>
-            </div>
-            
-            {anomalies.low.length === 0 ? (
-              <p className="text-brand-textMuted text-xs font-mono py-4">No stations reporting low-pressure systems (&lt; 1008 hPa).</p>
-            ) : (
-              <div className="space-y-3 font-mono text-xs">
-                {anomalies.low.map(obs => (
-                  <div key={obs.id} className="flex justify-between items-center p-3 rounded-xl bg-blue-950/20 border border-blue-500/10 hover:border-blue-500/30 transition-all">
-                    <div>
-                      <span className="text-white font-semibold block">{obs.Station}</span>
-                      <span className="text-[10px] text-brand-textSecondary">City: {obs.City} | {obs.Timestamp.split(' ')[1]}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-sm font-extrabold text-brand-cyan block">{obs.Pressure_hPa} hPa</span>
-                      <span className="text-[9px] text-brand-textMuted font-sans">Cyclone Warning</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* High Pressure Alerts */}
-          <div className="glass-panel p-5 rounded-2xl border border-red-500/20">
-            <div className="flex items-center gap-2 border-b border-brand-border/30 pb-3 mb-4 text-red-400">
-              <ShieldAlert className="w-5 h-5 text-red-400" />
-              <h4 className="font-bold text-sm uppercase tracking-wider font-['Outfit'] text-white">High-Pressure Ridge Watch</h4>
-            </div>
-            
-            {anomalies.high.length === 0 ? (
-              <p className="text-brand-textMuted text-xs font-mono py-4">No stations reporting high-pressure systems (&gt; 1018 hPa).</p>
-            ) : (
-              <div className="space-y-3 font-mono text-xs">
-                {anomalies.high.map(obs => (
-                  <div key={obs.id} className="flex justify-between items-center p-3 rounded-xl bg-red-950/10 border border-red-500/10 hover:border-red-500/30 transition-all">
-                    <div>
-                      <span className="text-white font-semibold block">{obs.Station}</span>
-                      <span className="text-[10px] text-brand-textSecondary">City: {obs.City} | {obs.Timestamp.split(' ')[1]}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-sm font-extrabold text-red-400 block">{obs.Pressure_hPa} hPa</span>
-                      <span className="text-[9px] text-brand-textMuted font-sans">Stable Ridge Air</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* Alerts */}
+      {dataset?.length > 0 && (
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <AlertPanel title="Low-Pressure Watch" color="#22D3EE" items={anomalies.low} emptyMsg="No low-pressure anomalies detected." icon={TrendingDown} />
+          <AlertPanel title="High-Pressure Ridge" color="#EF4444" items={anomalies.high} emptyMsg="No high-pressure anomalies detected." icon={ShieldAlert} />
         </section>
       )}
+    </div>
+  );
+}
+
+function AlertPanel({ title, color, items, emptyMsg, icon: Icon }) {
+  return (
+    <div className="bg-[#0A0A0A] border border-white/[0.08] rounded-xl p-5">
+      <div className="flex items-center gap-2 pb-3 mb-4 border-b border-white/[0.06]">
+        <Icon className="w-4 h-4" style={{ color }} />
+        <h4 className="text-sm font-bold text-white">{title}</h4>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-[11px] text-[#525252] font-mono py-3">{emptyMsg}</p>
+      ) : items.map(obs => (
+        <div key={obs.Station} className="flex justify-between items-center py-2.5 border-b border-white/[0.04] last:border-0">
+          <div>
+            <p className="text-white text-[11px] font-medium">{obs.Station}</p>
+            <p className="text-[9px] text-[#525252] font-mono">{obs.City} · {obs.Timestamp?.split(' ')[1]}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-bold font-mono" style={{ color }}>{obs.Pressure_hPa} hPa</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

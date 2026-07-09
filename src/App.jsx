@@ -1,212 +1,121 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Radio, ShieldAlert, Cpu, Database, Award, ArrowUpRight, HelpCircle } from 'lucide-react';
+import { Database, Cpu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import MapPage from './pages/MapPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import DataExplorerPage from './pages/DataExplorerPage';
+import OGCViewerPage from './pages/OGCViewerPage';
 import SettingsPage from './pages/SettingsPage';
 import AboutPage from './pages/AboutPage';
 import { generateMockObservations } from './utils/mockDataLoader';
 
+const LINKEDIN = 'https://www.linkedin.com/in/junaid-ahmed-442025280/';
+
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  
-  // Global dataset states
   const [rawDataset, setRawDataset] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
-  
-  // Global preferences
   const [pressureThresholds, setPressureThresholds] = useState({ low: 1008, high: 1018 });
-  const [pressureUnit, setPressureUnit] = useState('hPa'); // hPa, inHg, mmHg
+  const [pressureUnit, setPressureUnit] = useState('hPa');
 
-  // Initialize dataset with default mock observations on load
-  useEffect(() => {
-    const defaultData = generateMockObservations();
-    setRawDataset(defaultData);
-  }, []);
+  useEffect(() => { setRawDataset(generateMockObservations()); }, []);
 
-  // Utility: Convert Pressure from hPa to selected unit
-  const convertPressureValue = (hpa) => {
+  const convertPressure = (hpa) => {
     if (pressureUnit === 'inHg') return parseFloat((hpa * 0.02953).toFixed(2));
     if (pressureUnit === 'mmHg') return parseFloat((hpa * 0.750062).toFixed(2));
-    return hpa; // hPa
+    return hpa;
   };
 
-  // Convert raw dataset to display dataset matching unit preference
-  const displayDataset = useMemo(() => {
-    return rawDataset.map(obs => ({
-      ...obs,
-      Pressure_hPa: convertPressureValue(obs.Pressure_hPa)
-    }));
-  }, [rawDataset, pressureUnit]);
+  const displayDataset = useMemo(() =>
+    rawDataset.map(obs => ({ ...obs, Pressure_hPa: convertPressure(obs.Pressure_hPa) })),
+    [rawDataset, pressureUnit]
+  );
 
-  // Convert thresholds to match active units for visual calculations
-  const displayThresholds = useMemo(() => {
-    return {
-      low: convertPressureValue(pressureThresholds.low),
-      high: convertPressureValue(pressureThresholds.high)
-    };
-  }, [pressureThresholds, pressureUnit]);
+  const handleDataLoaded = (data) => { setRawDataset(data); setSelectedStation(null); };
 
-  // Handler: Handle CSV file load
-  const handleDataLoaded = (parsedData) => {
-    setRawDataset(parsedData);
-    setSelectedStation(null); // Reset selection
-  };
-
-  // Handler: Factory reset to default Tamil Nadu mock dataset
-  const handleResetToDefault = () => {
-    const defaultData = generateMockObservations();
-    setRawDataset(defaultData);
+  const handleReset = () => {
+    setRawDataset(generateMockObservations());
     setSelectedStation(null);
     setPressureThresholds({ low: 1008, high: 1018 });
     setPressureUnit('hPa');
-    alert("System database restored to default Tamil Nadu telemetry logs.");
   };
 
-  // Handler: Download telemetry logs for a specific station
-  const handleDownloadStationData = (stationName) => {
-    const stationLogs = rawDataset.filter(obs => obs.Station === stationName);
-    if (stationLogs.length === 0) return;
-
+  const handleDownloadStation = (stationName) => {
+    const logs = rawDataset.filter(o => o.Station === stationName);
+    if (!logs.length) return;
     const headers = ['Station', 'City', 'Latitude', 'Longitude', 'Timestamp', 'Pressure_hPa'];
-    const csvRows = [headers.join(',')];
-
-    stationLogs.forEach(row => {
-      const values = headers.map(header => {
-        const val = row[header];
-        if (typeof val === 'string' && val.includes(',')) {
-          return `"${val}"`;
-        }
-        return val;
-      });
-      csvRows.push(values.join(','));
-    });
-
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${stationName.toLowerCase().replace(/\s+/g, '_')}_telemetry.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const rows = [headers.join(','), ...logs.map(r => headers.map(h => { const v = r[h]; return typeof v === 'string' && v.includes(',') ? `"${v}"` : v; }).join(','))];
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+    a.download = `${stationName.replace(/\s+/g, '_').toLowerCase()}_telemetry.csv`;
+    a.click();
   };
 
-  // Render Page Router
   const renderPage = () => {
     switch (activePage) {
-      case 'dashboard':
-        return (
-          <Dashboard 
-            dataset={displayDataset} 
-            onDataLoaded={handleDataLoaded} 
-            setActivePage={setActivePage}
-          />
-        );
-      case 'map':
-        return (
-          <MapPage 
-            dataset={displayDataset}
-            selectedStation={selectedStation}
-            setSelectedStation={setSelectedStation}
-            onDownloadStationData={handleDownloadStationData}
-          />
-        );
-      case 'analytics':
-        return <AnalyticsPage dataset={displayDataset} />;
-      case 'explorer':
-        return <DataExplorerPage dataset={displayDataset} />;
-      case 'settings':
-        return (
-          <SettingsPage 
-            pressureThresholds={pressureThresholds}
-            setPressureThresholds={setPressureThresholds}
-            pressureUnit={pressureUnit}
-            setPressureUnit={setPressureUnit}
-            onResetToDefault={handleResetToDefault}
-          />
-        );
-      case 'about':
-        return <AboutPage />;
-      default:
-        return <Dashboard dataset={displayDataset} onDataLoaded={handleDataLoaded} setActivePage={setActivePage} />;
+      case 'dashboard': return <Dashboard dataset={displayDataset} onDataLoaded={handleDataLoaded} setActivePage={setActivePage} />;
+      case 'map': return <MapPage dataset={displayDataset} selectedStation={selectedStation} setSelectedStation={setSelectedStation} onDownloadStationData={handleDownloadStation} />;
+      case 'analytics': return <AnalyticsPage dataset={displayDataset} />;
+      case 'explorer': return <DataExplorerPage dataset={displayDataset} />;
+      case 'ogc': return <OGCViewerPage />;
+      case 'settings': return <SettingsPage pressureThresholds={pressureThresholds} setPressureThresholds={setPressureThresholds} pressureUnit={pressureUnit} setPressureUnit={setPressureUnit} onResetToDefault={handleReset} />;
+      case 'about': return <AboutPage />;
+      default: return <Dashboard dataset={displayDataset} onDataLoaded={handleDataLoaded} setActivePage={setActivePage} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-brand-navy flex font-sans antialiased text-white selection:bg-brand-cyan/30 selection:text-brand-cyan">
-      
-      {/* Sidebar Navigation */}
-      <Sidebar 
-        activePage={activePage} 
-        setActivePage={setActivePage} 
-        sidebarOpen={sidebarOpen} 
-        setSidebarOpen={setSidebarOpen} 
-      />
+    <div className="min-h-screen bg-black flex font-sans antialiased text-white">
+      <Sidebar activePage={activePage} setActivePage={setActivePage} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* Main Content Layout Container */}
-      <div 
-        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
-          sidebarOpen ? 'pl-64' : 'pl-20'
-        }`}
-      >
-        
-        {/* Global Glassmorphism Header */}
-        <header className="sticky top-0 z-30 h-16 border-b border-brand-border bg-brand-navy/80 backdrop-blur-md flex items-center justify-between px-6 select-none">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-brand-textMuted uppercase tracking-widest font-mono">OGC SensorThings Interface</span>
-              <h2 className="text-sm font-bold text-white font-['Outfit'] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-brand-cyan animate-pulse"></span>
-                Tamil Nadu Barometric Monitoring Console
-              </h2>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'pl-60' : 'pl-16'}`}>
+        {/* Header */}
+        <header className="sticky top-0 z-30 h-14 border-b border-white/[0.06] bg-black/90 backdrop-blur-lg flex items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+            <div>
+              <p className="text-[8px] text-[#404040] font-mono uppercase tracking-widest">OGC SensorThings</p>
+              <p className="text-[11px] font-semibold text-[#D4D4D4]">Tamil Nadu Atmospheric Console</p>
             </div>
           </div>
-
-          <div className="hidden sm:flex items-center gap-4 text-xs font-mono">
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-dark/50 border border-brand-border/40 rounded-lg text-brand-textSecondary">
-              <Database className="w-3.5 h-3.5 text-brand-cyan" />
-              <span>Rows: {rawDataset.length.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-dark/50 border border-brand-border/40 rounded-lg text-brand-textSecondary">
-              <Cpu className="w-3.5 h-3.5 text-brand-blue" />
-              <span>Scale: {pressureUnit}</span>
-            </div>
+          <div className="hidden sm:flex items-center gap-3 text-[10px] font-mono">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-[#111] border border-white/[0.06] rounded-md text-[#525252]">
+              <Database className="w-3 h-3 text-[#22D3EE]" />{rawDataset.length.toLocaleString()} rows
+            </span>
+            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-[#111] border border-white/[0.06] rounded-md text-[#525252]">
+              <Cpu className="w-3 h-3 text-[#737373]" />{pressureUnit}
+            </span>
+            <span className="text-[9px] text-[#404040]">
+              by <a href={LINKEDIN} target="_blank" rel="noopener noreferrer" className="linkedin-link">Junaid Ahmed</a>
+            </span>
           </div>
         </header>
 
-        {/* Dynamic Page Viewer Container */}
-        <main className="flex-1 p-6 md:p-8 max-w-[1600px] mx-auto w-full">
+        {/* Main */}
+        <main className="flex-1 p-5 md:p-6 max-w-[1500px] mx-auto w-full">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={activePage}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-            >
+            <motion.div key={activePage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
               {renderPage()}
             </motion.div>
           </AnimatePresence>
         </main>
 
-        {/* Global Footer */}
-        <footer className="mt-auto border-t border-brand-border bg-brand-darker py-5 px-6 select-none">
-          <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-brand-textMuted font-mono">
-            <div className="flex items-center gap-4">
+        {/* Footer */}
+        <footer className="mt-auto border-t border-white/[0.04] bg-black py-4 px-6">
+          <div className="max-w-[1500px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-[9px] text-[#404040] font-mono">
+            <div className="flex items-center gap-3">
               <span>OGC SensorThings Compatible</span>
-              <span className="w-1 h-1 rounded-full bg-brand-border"></span>
+              <span className="w-1 h-1 rounded-full bg-[#252525]" />
               <span>Powered by Azure Data Explorer</span>
             </div>
-            <div className="text-center md:text-right">
-              <span>Developed by <span className="text-brand-cyan">Junaid Ahmed</span></span>
-              <span className="mx-2">|</span>
-              <span>Trinav Spacetech Atmospheric Monitoring Platform</span>
+            <div>
+              Developed by{' '}
+              <a href={LINKEDIN} target="_blank" rel="noopener noreferrer" className="linkedin-link">Junaid Ahmed ↗</a>
+              <span className="mx-2 text-[#252525]">|</span>
+              <span>Trinav Spacetech © 2026</span>
             </div>
           </div>
         </footer>

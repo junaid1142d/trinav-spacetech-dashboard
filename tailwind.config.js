@@ -8,24 +8,34 @@ export default {
     extend: {
       colors: {
         brand: {
-          navy: '#0B1020',
-          dark: '#111827',
-          cyan: '#22D3EE',
-          blue: '#38BDF8',
-          darker: '#060A13',
-          card: '#151D30',
-          border: 'rgba(34, 211, 238, 0.2)',
-          borderHover: 'rgba(34, 211, 238, 0.4)',
-          textSecondary: '#94A3B8',
-          textMuted: '#64748B',
+          navy: '#000000',
+          dark: '#0A0A0A',
+          cyan: '#FFFFFF',
+          blue: '#22D3EE',
+          accent: '#22D3EE',
+          darker: '#000000',
+          card: '#111111',
+          border: 'rgba(255, 255, 255, 0.1)',
+          borderHover: 'rgba(255, 255, 255, 0.25)',
+          textSecondary: '#D4D4D4',
+          textMuted: '#737373',
+          chart: {
+            line: '#22D3EE',
+            grid: 'rgba(255,255,255,0.06)',
+            bar: '#FFFFFF',
+            barAlt: '#22D3EE',
+          }
         }
       },
       fontFamily: {
-        sans: ['Inter', 'Outfit', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        display: ['Outfit', 'Inter', 'sans-serif'],
       },
       boxShadow: {
-        'cyan-glow': '0 0 15px rgba(34, 211, 238, 0.15)',
-        'cyan-glow-lg': '0 0 25px rgba(34, 211, 238, 0.25)',
+        'cyan-glow': '0 0 20px rgba(34, 211, 238, 0.15)',
+        'cyan-glow-lg': '0 0 40px rgba(34, 211, 238, 0.2)',
+        'white-glow': '0 0 20px rgba(255,255,255,0.08)',
       },
     },
   },
