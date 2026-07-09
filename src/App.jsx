@@ -95,30 +95,33 @@ export default function App() {
         </header>
 
         {/* Main */}
-        <main className="flex-1 p-5 md:p-6 max-w-[1500px] mx-auto w-full">
+        <main className={`flex-1 ${activePage === 'ogc' ? '' : 'p-5 md:p-6 max-w-[1500px] mx-auto w-full'}`}>
           <AnimatePresence mode="wait">
-            <motion.div key={activePage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+            <motion.div key={activePage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}
+              className={activePage === 'ogc' ? 'h-full' : ''}>
               {renderPage()}
             </motion.div>
           </AnimatePresence>
         </main>
 
-        {/* Footer */}
-        <footer className="mt-auto border-t border-white/[0.04] bg-black py-4 px-6">
-          <div className="max-w-[1500px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-[9px] text-[#404040] font-mono">
-            <div className="flex items-center gap-3">
-              <span>OGC SensorThings Compatible</span>
-              <span className="w-1 h-1 rounded-full bg-[#252525]" />
-              <span>Powered by Azure Data Explorer</span>
+        {/* Footer - hidden on OGC page */}
+        {activePage !== 'ogc' && (
+          <footer className="mt-auto border-t border-white/[0.04] bg-black py-4 px-6">
+            <div className="max-w-[1500px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-[9px] text-[#404040] font-mono">
+              <div className="flex items-center gap-3">
+                <span>OGC SensorThings Compatible</span>
+                <span className="w-1 h-1 rounded-full bg-[#252525]" />
+                <span>Powered by Azure Data Explorer</span>
+              </div>
+              <div>
+                Developed by{' '}
+                <a href={LINKEDIN} target="_blank" rel="noopener noreferrer" className="linkedin-link">Junaid Ahmed ↗</a>
+                <span className="mx-2 text-[#252525]">|</span>
+                <span>Trinav Spacetech © 2026</span>
+              </div>
             </div>
-            <div>
-              Developed by{' '}
-              <a href={LINKEDIN} target="_blank" rel="noopener noreferrer" className="linkedin-link">Junaid Ahmed ↗</a>
-              <span className="mx-2 text-[#252525]">|</span>
-              <span>Trinav Spacetech © 2026</span>
-            </div>
-          </div>
-        </footer>
+          </footer>
+        )}
       </div>
     </div>
   );

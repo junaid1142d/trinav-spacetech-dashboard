@@ -1,70 +1,166 @@
 # OGC WMS and WFS Integration
 
-This dashboard integrates public OGC services with the existing Trinav SpaceTech SensorThings pressure-station layer.
+This platform integrates public OGC services with the Trinav SpaceTech SensorThings pressure-station layer for renewable energy land suitability assessment across Tamil Nadu's 38 districts.
 
-## WMS
+## WMS (Web Map Service)
 
-- Endpoint: `https://ahocevar.com/geoserver/wms`
-- Layer name: `ne:NE1_HR_LC_SR_W_DR`
-- Layer description: Natural Earth raster background suitable as an environmental context layer.
-- CRS used by the client: `EPSG:3857`
-- WMS version: `1.1.1`
-- Image format: `image/png`
-- OpenLayers source: `TileWMS`
+### Endpoint
+- **Provider:** NASA Global Imagery Browse Services (GIBS)
+- **URL:** `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi`
+- **Version:** 1.3.0
+- **CRS:** EPSG:3857
 
-### GetCapabilities URL
+### OGC Request URLs
 
-```text
-https://ahocevar.com/geoserver/wms?service=WMS&version=1.1.1&request=GetCapabilities
+**GetCapabilities** — Discover all available layers:
+```
+https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities
 ```
 
-### GetMap Request
-
-OpenLayers generates tiled `GetMap` requests from `TileWMS`. A representative request is:
-
-```text
-https://ahocevar.com/geoserver/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=ne%3ANE1_HR_LC_SR_W_DR&FORMAT=image%2Fpng&TRANSPARENT=true&SRS=EPSG%3A3857&BBOX={tileBbox}&WIDTH=256&HEIGHT=256
+**GetMap** — Render a raster tile as a PNG overlay:
+```
+https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi
+  ?SERVICE=WMS
+  &VERSION=1.3.0
+  &REQUEST=GetMap
+  &LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor
+  &BBOX={minx},{miny},{maxx},{maxy}
+  &WIDTH=256
+  &HEIGHT=256
+  &CRS=EPSG:3857
+  &FORMAT=image/png
+  &TRANSPARENT=TRUE
+  &STYLES=
 ```
 
-## WFS
+### Implementation Notes
+- Layer discovery is performed at runtime via `GetCapabilities` XML parsing.
+- The user selects a layer from the parsed list; the application renders it as a `WMSTileLayer` via React Leaflet.
+- Opacity is adjustable in real-time (10%–100%).
+- Available layers include MODIS imagery, vegetation indices, temperature, cloud cover, and aerosol data.
 
-- Endpoint: `https://ahocevar.com/geoserver/wfs`
-- Feature type: `ne:ne_10m_admin_0_countries`
-- CRS requested by the client: `EPSG:3857`
-- WFS version: `1.1.0`
-- Output format: `application/json`
-- OpenLayers source: `VectorSource` with BBOX loading strategy.
+---
 
-### GetCapabilities URL
+## WFS (Web Feature Service)
 
-```text
-https://ahocevar.com/geoserver/wfs?service=WFS&version=1.1.0&request=GetCapabilities
+### Endpoint
+- **Provider:** GeoServer public demo instance (ahocevar.com)
+- **URL:** `https://ahocevar.com/geoserver/wfs`
+- **Version:** 2.0.0
+- **Output Format:** `application/json` (GeoJSON)
+
+### OGC Request URLs
+
+**GetCapabilities** — Discover feature types:
+```
+https://ahocevar.com/geoserver/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities
 ```
 
-### DescribeFeatureType URL
-
-```text
-https://ahocevar.com/geoserver/wfs?service=WFS&version=1.1.0&request=DescribeFeatureType&typeName=ne%3Ane_10m_admin_0_countries
+**GetFeature** — Query vector data with BBOX (Tamil Nadu extent):
+```
+https://ahocevar.com/geoserver/wfs
+  ?SERVICE=WFS
+  &VERSION=2.0.0
+  &REQUEST=GetFeature
+  &TYPENAMES=ne:populated_places
+  &OUTPUTFORMAT=application/json
+  &COUNT=100
+  &BBOX=76.2,7.9,80.6,13.5,EPSG:4326
 ```
 
-### GetFeature Request
-
-The client builds `GetFeature` requests from the current map extent:
-
-```text
-https://ahocevar.com/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature&typeName=ne%3Ane_10m_admin_0_countries&outputFormat=application%2Fjson&srsName=EPSG%3A3857&bbox={minX},{minY},{maxX},{maxY},EPSG%3A3857
+**DescribeFeatureType** — Inspect schema of a feature type:
+```
+https://ahocevar.com/geoserver/wfs
+  ?SERVICE=WFS
+  &VERSION=2.0.0
+  &REQUEST=DescribeFeatureType
+  &TYPENAMES=ne:populated_places
 ```
 
-## BBOX Usage
+### Implementation Notes
+- Feature type discovery via `GetCapabilities` XML parsing.
+- `GetFeature` requests use a bounding box scoped to Tamil Nadu (76.2°E–80.6°E, 7.9°N–13.5°N).
+- Response is parsed as GeoJSON and rendered as interactive vector layers on the map via React Leaflet `GeoJSON` component.
+- Users can click on any vector feature to inspect its attributes in the detail panel.
+- The Request Inspector logs every OGC HTTP call with status code, latency (ms), response size (KB), and URL for debugging.
 
-The WFS layer uses OpenLayers `bbox` loading strategy. Only features intersecting the current map extent are requested. Loaded extents are cached by rounded extent key to avoid repeated requests while panning or zooming across the same area. Failed extents are removed from the cache so retry can request them again.
+---
 
-## Performance and Reliability Notes
+## Tamil Nadu District Dataset
 
-- OGC metadata requests are lazy: `GetCapabilities` and `DescribeFeatureType` run only when WMS or WFS layers are enabled.
-- WMS raster loading is delegated to OpenLayers tiled rendering to avoid requesting a full-viewport image on every movement.
-- WFS features are requested as GeoJSON and clipped by BBOX to avoid downloading global vectors unnecessarily.
-- Network requests use timeout and retry handling.
-- The layer panel exposes loading, ready, error, and retry states.
-- If the public OGC service is unavailable, the base map and existing pressure-station SensorThings layer remain usable.
-- Public demo OGC servers can be slower than production services and may throttle traffic. For production deployments, use an enterprise GeoServer, MapServer, ArcGIS Server, or cloud OGC endpoint with uptime and CORS guarantees.
+### Source
+- 38 district centroids with renewable energy suitability attributes.
+- Data model follows OGC SensorThings `Thing` → `Datastream` → `Observation` pattern.
+
+### Attributes per District
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | District name |
+| `hq` | string | District headquarters city |
+| `area_sqkm` | number | District area in km² |
+| `population` | number | Census population |
+| `solar_irradiance_kwh` | number | Daily solar irradiance (kWh/m²/day) |
+| `wind_density_wm2` | number | Wind power density (W/m²) |
+| `terrain` | string | Terrain classification |
+| `land_use` | string | Primary land use category |
+| `grid_proximity_km` | number | Distance to nearest power grid connection (km) |
+| `suitability_solar` | number | Solar park suitability score (0–100) |
+| `suitability_wind` | number | Wind park suitability score (0–100) |
+| `overall_score` | number | Combined renewable energy suitability (0–100) |
+| `zone` | string | Geographic zone classification |
+
+### Suitability Scale
+| Score | Rating | Color |
+|-------|--------|-------|
+| 85–100 | Excellent | Green |
+| 70–84 | Good | Lime |
+| 55–69 | Moderate | Yellow |
+| 40–54 | Low | Orange |
+| 0–39 | Poor | Red |
+
+---
+
+## Performance & Error Handling
+
+### Network Error Handling
+- All OGC HTTP requests use `AbortController` for cancellation on component unmount or new requests.
+- Timeout and network errors are caught and displayed inline with error details.
+- The Request Inspector logs all requests with `success`, `error`, or `pending` status.
+
+### Bottlenecks Observed
+- **NASA GIBS GetCapabilities**: Large XML response (~1–3 MB). Parsing takes 500–2000ms depending on connection. Limited to first 60 layers in the UI.
+- **GeoServer WFS GetFeature**: Response size scales with feature count and geometry complexity. BBOX filtering reduces payload significantly.
+- **WMS tile loading**: Individual tile requests are fast (<200ms) but initial layer activation may show brief loading state as tiles populate the viewport.
+
+### Mitigation Strategies
+- XML parsing is done in the main thread using `DOMParser` (future: Web Worker offloading for large responses).
+- Feature counts are capped (`COUNT=100`) to prevent excessive payloads.
+- Layer lists are truncated to manageable sizes in the UI.
+- All requests are logged with timing data for performance auditing.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    React Frontend                        │
+│  ┌───────────┐  ┌───────────┐  ┌──────────────────────┐ │
+│  │  OGC      │  │  Request  │  │  Tamil Nadu District  │ │
+│  │  Manager  │  │  Logger   │  │  Dataset (GeoJSON)    │ │
+│  └─────┬─────┘  └─────┬─────┘  └──────────┬───────────┘ │
+│        │              │                    │              │
+│  ┌─────┴──────────────┴────────────────────┴───────────┐ │
+│  │              React Leaflet Map Container            │ │
+│  │  ┌────────┐  ┌──────────┐  ┌──────────────────────┐ │ │
+│  │  │ WMS    │  │ WFS      │  │ CircleMarker Layer   │ │ │
+│  │  │ Tiles  │  │ GeoJSON  │  │ (38 Districts)       │ │ │
+│  │  └────────┘  └──────────┘  └──────────────────────┘ │ │
+│  └─────────────────────────────────────────────────────┘ │
+└──────────┬──────────────────────┬────────────────────────┘
+           │                      │
+    ┌──────┴──────┐       ┌──────┴──────┐
+    │  NASA GIBS  │       │  GeoServer  │
+    │  WMS 1.3.0  │       │  WFS 2.0.0  │
+    └─────────────┘       └─────────────┘
+```
