@@ -138,14 +138,14 @@ export const DATA_SOURCES = [
 export const OGC_SERVICES_CONFIG = {
   WMS: {
     name: 'NASA GIBS',
-    url: 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi',
+    url: '/api/ogc/wms',
     version: '1.3.0',
     crs: 'EPSG:3857',
     description: 'NASA Global Imagery Browse Services — satellite imagery and derived environmental products',
   },
   WFS: {
     name: 'GeoServer (Natural Earth)',
-    url: 'https://ahocevar.com/geoserver/wfs',
+    url: '/api/ogc/wfs',
     version: '2.0.0',
     crs: 'EPSG:4326',
     description: 'OGC WFS endpoint serving Natural Earth vector datasets for geographic context',

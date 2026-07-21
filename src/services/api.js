@@ -25,6 +25,20 @@ let logListeners = [];
 export const onRequestLog = (fn) => { logListeners.push(fn); return () => { logListeners = logListeners.filter(l => l !== fn); }; };
 const pushLog = (log) => { requestLogs.unshift({ ...log, id: Date.now() + Math.random() }); if (requestLogs.length > 50) requestLogs.pop(); logListeners.forEach(fn => fn([...requestLogs])); };
 
+function buildOgcUrl(serviceUrl, params) {
+  const resolved = new URL(serviceUrl, window.location.origin);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value == null || value === '') return;
+    resolved.searchParams.set(key, String(value));
+  });
+  return resolved.toString();
+}
+
+function getDirectChildText(node, localName) {
+  const child = Array.from(node.children || []).find((item) => item.localName === localName);
+  return child?.textContent?.trim() || '';
+}
+
 // Fetch with timing, error handling, and logging
 async function timedFetch(url, label, signal) {
   const start = Date.now();
@@ -46,18 +60,25 @@ async function timedFetch(url, label, signal) {
 
 // ─── WMS: Parse GetCapabilities ─────────────────────────────
 export async function wmsGetCapabilities(serviceUrl, signal) {
-  const url = `${serviceUrl}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities`;
+  const url = buildOgcUrl(serviceUrl, {
+    SERVICE: 'WMS',
+    VERSION: '1.3.0',
+    REQUEST: 'GetCapabilities',
+  });
   const xml = await timedFetch(url, 'WMS GetCapabilities', signal);
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'application/xml');
 
-  const layerNodes = doc.querySelectorAll('Layer > Layer');
+  const layerNodes = Array.from(doc.getElementsByTagNameNS('*', 'Layer'));
   const layers = [];
-  layerNodes.forEach(node => {
-    const name = node.querySelector(':scope > Name')?.textContent?.trim();
-    const title = node.querySelector(':scope > Title')?.textContent?.trim();
-    const abstract = node.querySelector(':scope > Abstract')?.textContent?.trim() || '';
+  const seen = new Set();
+  layerNodes.forEach((node) => {
+    const name = getDirectChildText(node, 'Name');
+    const title = getDirectChildText(node, 'Title');
+    const abstract = getDirectChildText(node, 'Abstract');
     if (name && title) {
+      if (seen.has(name)) return;
+      seen.add(name);
       layers.push({ name, title, abstract, serviceUrl, type: 'WMS' });
     }
   });
@@ -66,18 +87,25 @@ export async function wmsGetCapabilities(serviceUrl, signal) {
 
 // ─── WFS: Parse GetCapabilities ─────────────────────────────
 export async function wfsGetCapabilities(serviceUrl, signal) {
-  const url = `${serviceUrl}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities`;
+  const url = buildOgcUrl(serviceUrl, {
+    SERVICE: 'WFS',
+    VERSION: '2.0.0',
+    REQUEST: 'GetCapabilities',
+  });
   const xml = await timedFetch(url, 'WFS GetCapabilities', signal);
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'application/xml');
 
-  const featureTypes = doc.querySelectorAll('FeatureType');
+  const featureTypes = Array.from(doc.getElementsByTagNameNS('*', 'FeatureType'));
   const layers = [];
-  featureTypes.forEach(ft => {
-    const name = ft.querySelector('Name')?.textContent?.trim();
-    const title = ft.querySelector('Title')?.textContent?.trim();
-    const abstract = ft.querySelector('Abstract')?.textContent?.trim() || '';
+  const seen = new Set();
+  featureTypes.forEach((ft) => {
+    const name = getDirectChildText(ft, 'Name');
+    const title = getDirectChildText(ft, 'Title');
+    const abstract = getDirectChildText(ft, 'Abstract');
     if (name && title) {
+      if (seen.has(name)) return;
+      seen.add(name);
       layers.push({ name, title, abstract, serviceUrl, type: 'WFS' });
     }
   });
@@ -86,8 +114,18 @@ export async function wfsGetCapabilities(serviceUrl, signal) {
 
 // ─── WFS: GetFeature (GeoJSON, BBOX) ────────────────────────
 export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatures = 200) {
-  const bboxStr = bbox ? `&BBOX=${bbox},EPSG:4326` : '';
-  const url = `${serviceUrl}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=${typeName}&OUTPUTFORMAT=application/json&COUNT=${maxFeatures}${bboxStr}`;
+  const requestParams = {
+    SERVICE: 'WFS',
+    VERSION: '2.0.0',
+    REQUEST: 'GetFeature',
+    typeNames: typeName,
+    outputFormat: 'application/json',
+    srsName: 'EPSG:4326',
+    count: maxFeatures,
+  };
+  if (bbox) requestParams.bbox = `${bbox},EPSG:4326`;
+
+  const url = buildOgcUrl(serviceUrl, requestParams);
   const text = await timedFetch(url, `WFS GetFeature: ${typeName}`, signal);
   try {
     return JSON.parse(text);

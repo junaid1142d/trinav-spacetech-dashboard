@@ -19,7 +19,7 @@ Core capabilities:
 
 ## Architecture
 
-The app has a Vite React frontend and a small Express backend. The frontend owns the GIS dashboard, analytics, CSV workflows, and OGC WMS/WFS viewers. The backend serves the production build and exposes a demo OGC SensorThings-style API under `/v1.1`.
+The app has a Vite React frontend and a small Express backend. The frontend owns the GIS dashboard, analytics, CSV workflows, and OGC WMS/WFS viewers. The backend serves the production build, exposes a demo OGC SensorThings-style API under `/v1.1`, and provides stable OGC proxy endpoints under `/api/ogc/wms` and `/api/ogc/wfs`.
 
 ## Folder Structure
 
@@ -43,6 +43,8 @@ public/              Static icons
 npm install
 npm run dev
 ```
+
+In development, Vite proxies `/api/ogc/wms` and `/api/ogc/wfs` to their upstream public OGC services so WMS/WFS layers work without CORS issues.
 
 For the full Express server and SensorThings API:
 

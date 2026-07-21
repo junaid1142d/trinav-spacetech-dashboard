@@ -2,6 +2,7 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import sensorThingsRouter from './server/routes/sensorthings.js';
+import ogcProxyRouter from './server/routes/ogcProxy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,6 +20,7 @@ app.use(express.json());
 
 // ── Mount OGC SensorThings API v1.1 Router ─────────────────────────
 app.use('/v1.1', sensorThingsRouter);
+app.use('/api/ogc', ogcProxyRouter);
 
 // ── Serve Production Built Frontend ────────────────────────────────
 app.use(express.static(join(__dirname, 'dist')));

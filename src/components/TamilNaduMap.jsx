@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polygon, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polygon, WMSTileLayer, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import {
   Crosshair, Home, Layers, LocateFixed, Maximize, Minimize, Search
@@ -166,6 +166,17 @@ function MiniTrend({ values, color }) {
 
 const getPressureColor = (p) => p < 1008 ? '#22D3EE' : p > 1018 ? '#EF4444' : '#EAB308';
 const getPressureLabel = (p) => p < 1008 ? 'Low Pressure' : p > 1018 ? 'High Pressure' : 'Normal';
+const getWfsStyle = (feature) => {
+  const geomType = feature?.geometry?.type || '';
+  if (geomType.includes('Point')) {
+    return { color: '#22D3EE', weight: 0, fillColor: '#22D3EE', fillOpacity: 0.75 };
+  }
+  if (geomType.includes('Line')) {
+    return { color: '#22D3EE', weight: 2, opacity: 0.85 };
+  }
+  return { color: '#22D3EE', weight: 1.5, opacity: 0.8, fillColor: '#22D3EE', fillOpacity: 0.1 };
+};
+const wfsPointToLayer = (feature, latlng) => L.circleMarker(latlng, { radius: 5, ...getWfsStyle(feature) });
 
 export default function TamilNaduMap({
   stations,
@@ -174,6 +185,11 @@ export default function TamilNaduMap({
   onStationSelect,
   selectedStation,
   onDownloadStationData,
+  activeWMSLayer = null,
+  wmsOpacity = 0.7,
+  wfsData = null,
+  onWmsStatusChange = () => {},
+  onWmsError = () => {},
 }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(true);
@@ -307,6 +323,31 @@ export default function TamilNaduMap({
 
       <MapContainer center={[11.1271, 78.6569]} zoom={7} style={{ width: '100%', height: '100%' }} scrollWheelZoom>
         <TileLayer key={basemap} url={BASEMAPS[basemap].url} attribution={BASEMAPS[basemap].attribution} />
+        {activeWMSLayer && (
+          <WMSTileLayer
+            key={`wms-${activeWMSLayer.name}`}
+            url="/api/ogc/wms"
+            layers={activeWMSLayer.name}
+            format="image/png"
+            transparent
+            version="1.3.0"
+            opacity={wmsOpacity}
+            eventHandlers={{
+              loading: () => {
+                onWmsStatusChange('loading');
+                onWmsError(null);
+              },
+              load: () => onWmsStatusChange('ready'),
+              tileerror: (evt) => {
+                onWmsStatusChange('error');
+                onWmsError(evt?.error?.message || 'Unable to load WMS tiles.');
+              },
+            }}
+          />
+        )}
+        {wfsData?.features?.length > 0 && (
+          <GeoJSON key={`wfs-${wfsData.features.length}`} data={wfsData} style={getWfsStyle} pointToLayer={wfsPointToLayer} />
+        )}
         <ScaleControl />
         <CoordinateTracker onMove={setCursor} />
         <MapActions />

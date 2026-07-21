@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Layers, RefreshCw, AlertCircle, CheckCircle2, Globe, Database,
-  MapPin, Zap, Wind, Sun, X, Search, Eye, EyeOff, Crosshair,
+  MapPin, Zap, Wind, Sun, X, Search, Eye, EyeOff, Crosshair, Loader2,
   BookOpen, ExternalLink
 } from 'lucide-react';
 import { MapContainer, TileLayer, WMSTileLayer, CircleMarker, Popup, GeoJSON, useMap } from 'react-leaflet';
@@ -48,6 +48,21 @@ const TABS = [
   { id: 'sources', label: 'Data Sources', icon: BookOpen },
 ];
 
+const OGC_BASEMAPS = {
+  dark: {
+    label: 'Dark',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  },
+  light: {
+    label: 'Light',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  },
+  satellite: {
+    label: 'Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  },
+};
+
 // ─── MAIN COMPONENT ────────────────────────────────
 export default function OGCViewerPage() {
   const [activeTab, setActiveTab] = useState('districts');
@@ -63,6 +78,8 @@ export default function OGCViewerPage() {
   const [allWmsLayers, setAllWmsLayers] = useState([]);
   const [loadingAllWMS, setLoadingAllWMS] = useState(false);
   const [wmsError, setWmsError] = useState(null);
+  const [wmsLoadState, setWmsLoadState] = useState('idle');
+  const [wmsLoadError, setWmsLoadError] = useState(null);
 
   // WFS
   const [activeWFSLayer, setActiveWFSLayer] = useState(null);
@@ -70,6 +87,7 @@ export default function OGCViewerPage() {
   const [loadingWFSData, setLoadingWFSData] = useState(false);
   const [selectedWFSFeature, setSelectedWFSFeature] = useState(null);
   const [wfsError, setWfsError] = useState(null);
+  const [baseMap, setBaseMap] = useState('dark');
 
   const abortRef = useRef(null);
   const tnBounds = [[7.9, 76.2], [13.5, 80.6]];
@@ -120,7 +138,27 @@ export default function OGCViewerPage() {
     } finally { setLoadingWFSData(false); }
   };
 
+  const toggleCuratedWFS = (layer) => {
+    if (activeWFSLayer?.name === layer.name) {
+      setActiveWFSLayer(null);
+      setWfsData(null);
+      setSelectedWFSFeature(null);
+      setWfsError(null);
+      return;
+    }
+    loadCuratedWFS(layer);
+  };
+
   useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    if (!activeWMSLayer) {
+      setWmsLoadState('idle');
+      setWmsLoadError(null);
+      return;
+    }
+    setWmsLoadState('loading');
+    setWmsLoadError(null);
+  }, [activeWMSLayer]);
 
   const activateWMSFromCurated = (layer) => {
     if (activeWMSLayer?.name === layer.name) {
@@ -145,6 +183,15 @@ export default function OGCViewerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <select
+            value={baseMap}
+            onChange={e => setBaseMap(e.target.value)}
+            className="bg-[#111] border border-white/[0.08] rounded-md text-[9px] text-white font-mono px-2 py-1 outline-none"
+          >
+            {Object.entries(OGC_BASEMAPS).map(([key, bm]) => (
+              <option key={key} value={key}>{bm.label} basemap</option>
+            ))}
+          </select>
           {activeWMSLayer && (
             <span className="flex items-center gap-1.5 px-2 py-1 bg-[#22D3EE]/10 border border-[#22D3EE]/25 rounded-md text-[9px] font-mono text-[#22D3EE]">
               <Globe className="w-3 h-3" />WMS: {activeWMSLayer.title?.substring(0, 20)}
@@ -155,6 +202,18 @@ export default function OGCViewerPage() {
             <span className="flex items-center gap-1.5 px-2 py-1 bg-white/5 border border-white/15 rounded-md text-[9px] font-mono text-white">
               <Database className="w-3 h-3" />{wfsData.features.length} WFS features
               <button onClick={() => { setWfsData(null); setActiveWFSLayer(null); }} className="hover:text-red-400"><X className="w-2.5 h-2.5" /></button>
+            </span>
+          )}
+          {activeWMSLayer && (
+            <span className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[9px] font-mono border ${
+              wmsLoadState === 'error'
+                ? 'bg-red-950/20 text-red-300 border-red-500/30'
+                : wmsLoadState === 'ready'
+                  ? 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/30'
+                  : 'bg-amber-950/20 text-amber-300 border-amber-500/30'
+            }`}>
+              {wmsLoadState === 'loading' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Globe className="w-3 h-3" />}
+              {wmsLoadState === 'ready' ? 'WMS ready' : wmsLoadState === 'error' ? 'WMS error' : 'WMS loading'}
             </span>
           )}
         </div>
@@ -294,6 +353,7 @@ export default function OGCViewerPage() {
                       Discover All via GetCapabilities ({allWmsLayers.length || '...'})
                     </button>
                     {wmsError && <p className="text-[9px] text-red-400 font-mono mt-2"><AlertCircle className="w-3 h-3 inline mr-1" />{wmsError}</p>}
+                    {wmsLoadError && <p className="text-[9px] text-red-400 font-mono mt-2"><AlertCircle className="w-3 h-3 inline mr-1" />{wmsLoadError}</p>}
                   </div>
 
                   {showAllWMS && allWmsLayers.length > 0 && (
@@ -355,7 +415,7 @@ export default function OGCViewerPage() {
                     const isActive = activeWFSLayer?.name === l.name;
                     const isLoading = loadingWFSData && isActive;
                     return (
-                      <button key={l.name} onClick={() => !isLoading && loadCuratedWFS(l)}
+                      <button key={l.name} onClick={() => !isLoading && toggleCuratedWFS(l)}
                         disabled={isLoading}
                         className={`w-full text-left px-3 py-3 border-b border-white/[0.04] transition-all ${
                           isActive ? 'bg-white/[0.05] border-l-2 border-l-white' : 'hover:bg-white/[0.02] border-l-2 border-l-transparent'
@@ -382,6 +442,14 @@ export default function OGCViewerPage() {
                     <div className="flex items-center gap-1.5 px-2 py-1.5 bg-red-950/20 border border-red-500/20 rounded-lg text-[9px] text-red-400 font-mono">
                       <AlertCircle className="w-3 h-3 flex-shrink-0" />{wfsError}
                     </div>
+                    {activeWFSLayer && (
+                      <button
+                        onClick={() => loadCuratedWFS(activeWFSLayer)}
+                        className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white text-black text-[10px] font-bold rounded-lg hover:bg-white/90 transition-colors"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Retry WFS request
+                      </button>
+                    )}
                   </div>
                 )}
                 {wfsData?.features?.length > 0 && (
@@ -448,7 +516,7 @@ export default function OGCViewerPage() {
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 relative">
             <MapContainer center={[10.8, 78.6]} zoom={7} style={{ width: '100%', height: '100%' }} scrollWheelZoom zoomControl={false}>
-              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+              <TileLayer key={baseMap} url={OGC_BASEMAPS[baseMap].url} />
               <FitBounds bounds={tnBounds} />
 
               {activeWMSLayer && (
@@ -459,6 +527,17 @@ export default function OGCViewerPage() {
                   transparent={true}
                   version="1.3.0"
                   opacity={wmsOpacity}
+                  eventHandlers={{
+                    loading: () => {
+                      setWmsLoadState('loading');
+                      setWmsLoadError(null);
+                    },
+                    load: () => setWmsLoadState('ready'),
+                    tileerror: (evt) => {
+                      setWmsLoadState('error');
+                      setWmsLoadError(evt?.error?.message || 'Unable to load WMS tiles.');
+                    },
+                  }}
                 />
               )}
 
@@ -513,6 +592,7 @@ export default function OGCViewerPage() {
                 <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[#0A0A0A]/95 border border-[#22D3EE]/25 rounded-lg text-[9px] font-mono text-[#22D3EE] backdrop-blur-sm">
                   <Globe className="w-3 h-3" />
                   <span className="truncate max-w-[180px]">{activeWMSLayer.title}</span>
+                  <span className="text-[8px] text-white/60 uppercase">{wmsLoadState}</span>
                   <button onClick={() => setActiveWMSLayer(null)} className="hover:text-white"><X className="w-3 h-3" /></button>
                 </div>
               )}
