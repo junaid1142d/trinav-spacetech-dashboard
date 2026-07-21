@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, Map, Database, LineChart,
-  Settings, Info, ChevronLeft, ChevronRight, Radio, User, Layers
+  Settings, Info, ChevronLeft, ChevronRight, Radio, User, Layers, Server
 } from 'lucide-react';
 
 const LINKEDIN_URL = 'https://www.linkedin.com/in/junaid-ahmed-442025280/';
@@ -11,6 +11,7 @@ const menuItems = [
   { id: 'map', name: 'Map & GIS', icon: Map },
   { id: 'analytics', name: 'Analytics', icon: LineChart },
   { id: 'explorer', name: 'Data Explorer', icon: Database },
+  { id: 'sensorthings', name: 'SensorThings API', icon: Server },
   { id: 'ogc', name: 'OGC Viewer', icon: Layers },
   { id: 'settings', name: 'Settings', icon: Settings },
   { id: 'about', name: 'About', icon: Info },

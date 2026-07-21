@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import MapPage from './pages/MapPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import DataExplorerPage from './pages/DataExplorerPage';
+import SensorThingsExplorer from './components/sensorthings/SensorThingsExplorer';
 import OGCViewerPage from './pages/OGCViewerPage';
 import SettingsPage from './pages/SettingsPage';
 import AboutPage from './pages/AboutPage';
@@ -60,6 +61,7 @@ export default function App() {
       case 'map': return <MapPage dataset={displayDataset} selectedStation={selectedStation} setSelectedStation={setSelectedStation} onDownloadStationData={handleDownloadStation} />;
       case 'analytics': return <AnalyticsPage dataset={displayDataset} />;
       case 'explorer': return <DataExplorerPage dataset={displayDataset} />;
+      case 'sensorthings': return <SensorThingsExplorer />;
       case 'ogc': return <OGCViewerPage />;
       case 'settings': return <SettingsPage pressureThresholds={pressureThresholds} setPressureThresholds={setPressureThresholds} pressureUnit={pressureUnit} setPressureUnit={setPressureUnit} onResetToDefault={handleReset} />;
       case 'about': return <AboutPage />;
