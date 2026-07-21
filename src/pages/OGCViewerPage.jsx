@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Layers, RefreshCw, AlertCircle, CheckCircle2, Globe, Database,
   MapPin, Zap, Wind, Sun, X, Search, Eye, EyeOff, Crosshair,
-  Info, BookOpen, ExternalLink, ChevronDown, ChevronUp
+  BookOpen, ExternalLink
 } from 'lucide-react';
 import { MapContainer, TileLayer, WMSTileLayer, CircleMarker, Popup, GeoJSON, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import RequestInspector from '../components/RequestInspector';
-import { OGC_SERVICES, wmsGetCapabilities, wfsGetCapabilities, wfsGetFeature } from '../services/api';
+import { wmsGetCapabilities, wfsGetFeature } from '../services/api';
 import tamilnaduDistricts, { ZONE_COLORS, getSuitabilityColor, getSuitabilityLabel } from '../data/tamilnaduDistricts';
 import { CURATED_WMS_LAYERS, CURATED_WFS_LAYERS, DATA_SOURCES, OGC_SERVICES_CONFIG } from '../data/curatedOGCLayers';
 

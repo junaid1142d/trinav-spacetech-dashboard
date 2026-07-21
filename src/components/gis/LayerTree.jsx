@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Eye, EyeOff, Sliders, Map as MapIcon, Globe, Database } from 'lucide-react';
+import { Layers, Eye, EyeOff, Map as MapIcon, Globe, Database } from 'lucide-react';
 
 export default function LayerTree({
   baseMap, setBaseMap,

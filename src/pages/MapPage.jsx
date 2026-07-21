@@ -35,6 +35,16 @@ export default function MapPage({ dataset, selectedStation, setSelectedStation, 
     return dataset.filter(o => o.Station === selectedStation.Station);
   }, [selectedStation, dataset]);
 
+  const stationHistory = useMemo(() => {
+    const history = {};
+    dataset?.forEach(obs => {
+      if (!history[obs.Station]) history[obs.Station] = [];
+      history[obs.Station].push(obs);
+    });
+    Object.values(history).forEach(rows => rows.sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp)));
+    return history;
+  }, [dataset]);
+
   return (
     <div className="flex flex-col xl:flex-row gap-5 h-[calc(100vh-5rem)] overflow-hidden">
       {/* Map + Playback */}
@@ -50,6 +60,7 @@ export default function MapPage({ dataset, selectedStation, setSelectedStation, 
           <TamilNaduMap
             stations={stations}
             currentObservations={currentObs}
+            stationHistory={stationHistory}
             onStationSelect={setSelectedStation}
             selectedStation={selectedStation}
             onDownloadStationData={onDownloadStationData}

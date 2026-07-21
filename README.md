@@ -1,87 +1,97 @@
-# TRINAV SPACETECH — Atmospheric Pressure Monitoring & Renewable Energy Platform
+# TRINAV SPACETECH - Atmospheric Pressure Monitoring Dashboard
 
-**OGC SensorThings API 1.1 Compliant | Azure Data Explorer Ready | QGIS Interoperable**
+Internship-quality GIS dashboard for atmospheric pressure visualization, OGC interoperability, and conceptual SensorThings modeling across Tamil Nadu.
 
-Developed by **Junaid Ahmed** ([LinkedIn](https://www.linkedin.com/in/junaid-ahmed-442025280/)) for **Trinav SpaceTech**.
+Live site: https://trinav-spacetech.vercel.app/
 
----
+## Project Overview
 
-## 🌟 Platform Highlights
+This repository demonstrates a lightweight environmental monitoring console built with React, Leaflet, Recharts, Express, and OGC-oriented service utilities. It is intentionally scoped as a polished educational deliverable, not a production SaaS platform.
 
-- **OGC SensorThings API 1.1 REST Server**: Full Node.js/Express backend exposing `/v1.1/Things`, `Locations`, `HistoricalLocations`, `Datastreams`, `Sensors`, `ObservedProperties`, `FeaturesOfInterest`, and `Observations`.
-- **OData 4.0 Query Engine**: Server-side support for `$filter`, `$expand`, `$select`, `$orderby`, `$top`, `$skip`, and `$count`.
-- **Tamil Nilam–Inspired GIS Usability**:
-  - Grouped Layer Tree with basemap provider switcher (CartoDB Dark, OpenStreetMap, ESRI Satellite).
-  - Operational 38-District Tamil Nadu Suitability Layer with MCDM scores (Solar, Wind, Grid, Terrain).
-  - GIS Toolbar with line distance measurement, area estimator, mouse coordinate tracker, scale bar, and quick regional bookmarks.
-  - NASA GIBS WMS (Web Map Service) & GeoServer WFS (Web Feature Service) integration with BBOX filtering.
-- **Atmospheric Analytics**: Real-time timeseries graphs, barometric distribution histograms, anomaly alert monitors, and temporal playback simulation.
+Core capabilities:
 
----
+- Interactive Tamil Nadu pressure station map with search, basemaps, heatmap, boundary overlay, live cursor coordinates, scale, home, locate, fullscreen, and CSV export.
+- Analytics dashboards for pressure statistics, station averages, distribution, volatility, and temporal trends.
+- CSV upload, validation, search, sort, pagination, station/city filters, and export.
+- OGC Explorer for WMS GetCapabilities, WMS GetMap previews, WFS GetFeature GeoJSON rendering, BBOX filtering, runtime layer discovery, and request inspection.
+- OGC Compliance page with an implementation matrix and clear SensorThings scope notes.
+- Conceptual SensorThings JSON entities for Things, Locations, Datastreams, Observations, ObservedProperties, Sensors, FeaturesOfInterest, and HistoricalLocations.
 
-## 🚀 Quick Start
+## Architecture
 
-### 1. Local Development
+The app has a Vite React frontend and a small Express backend. The frontend owns the GIS dashboard, analytics, CSV workflows, and OGC WMS/WFS viewers. The backend serves the production build and exposes a demo OGC SensorThings-style API under `/v1.1`.
+
+## Folder Structure
+
+```text
+src/
+  components/        Reusable dashboard, table, map, GIS, and SensorThings UI
+  pages/             Dashboard, map, analytics, data explorer, OGC, compliance, settings, about
+  services/          API, CSV, metrics, and OGC request helpers
+  utils/             Mock observation loader and request builders
+  data/              Tamil Nadu district and curated OGC layer data
+server/
+  routes/            SensorThings route handlers
+  sensorthings/      Conceptual SensorThings data model and OData parser
+docs/                OGC reference and compliance notes
+public/              Static icons
+```
+
+## Running Locally
+
 ```bash
-# Install dependencies
 npm install
+npm run dev
+```
 
-# Build frontend & start server
+For the full Express server and SensorThings API:
+
+```bash
 npm run build
 npm start
 ```
 
-Access the platform:
-- **Web Console**: `http://localhost:8080/`
-- **SensorThings API Root**: `http://localhost:8080/v1.1/`
+Open `http://localhost:8080/` and `http://localhost:8080/v1.1/`.
 
----
+## OGC Standards
 
-## 📡 OGC SensorThings API 1.1 Specification
+Implemented for demonstration:
 
-### Base Endpoint
-`GET /v1.1/`
+- WMS GetCapabilities
+- WMS GetMap
+- WFS GetCapabilities service utility
+- WFS GetFeature
+- DescribeFeatureType URL construction
+- GeoJSON rendering
+- BBOX filtering
+- Runtime layer discovery
+- Request inspector and response visibility
 
-### Resource Endpoints
-- `GET /v1.1/Things` — List all 38 district telemetry nodes
-- `GET /v1.1/Locations` — Geospatial site coordinates (GeoJSON)
-- `GET /v1.1/HistoricalLocations` — Station location movement history
-- `GET /v1.1/Datastreams` — Barometric timeseries datastreams
-- `GET /v1.1/Sensors` — Sensor hardware specifications (Bosch BMP390, Pyranometer)
-- `GET /v1.1/ObservedProperties` — Observed physical parameters
-- `GET /v1.1/FeaturesOfInterest` — Regional atmospheric domain
-- `GET /v1.1/Observations` — Individual barometric pressure observations
+SensorThings support is conceptual and educational. The repository models SensorThings entities and exposes a lightweight demo API, but it is not a certified full SensorThings server.
 
-### OData Query Examples
-```http
-# Filter observations greater than 1012 hPa
-GET /v1.1/Observations?$filter=result gt 1012
+## Deployment
 
-# Expand Datastreams & Observations inside Things
-GET /v1.1/Things?$expand=Datastreams/Observations
+The app can be hosted as a Node/Express app on Azure App Service after running `npm run build`. The configured target from the project brief is:
 
-# Top 5 suitability scores sorted descending
-GET /v1.1/Things?$orderby=properties/overallSuitabilityScore desc&$top=5
+- App Service: `trinav-spacetech-junaid`
+- Resource group: `trinav-spacetech-rg`
 
-# Count total locations with inline count
-GET /v1.1/Locations?$count=true&$top=10
+Deployment requires valid Azure CLI login or configured CI/CD credentials.
+
+## Verification
+
+Current local checks:
+
+```bash
+npm run lint
+npm run build
 ```
 
----
+Known non-blocking build notes:
 
-## 🗺️ OGC WMS & WFS Endpoints
+- Vite reports a large JavaScript bundle because map/chart libraries are included in one client bundle.
+- Leaflet CSS references marker/layer image URLs that Vite leaves for runtime resolution.
 
-- **WMS (NASA GIBS)**: `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi`
-- **WFS (GeoServer)**: `https://ahocevar.com/geoserver/wfs`
+## Author
 
----
-
-## 📜 Documentation
-
-- [OGC Compliance Matrix](docs/OGC_Compliance_Matrix.md)
-- [OGC WMS/WFS Reference](docs/OGC.md)
-
----
-
-## 🛡️ License & Copyright
-Developed by Junaid Ahmed. Trinav SpaceTech © 2026.
+Developed by Junaid Ahmed for Trinav SpaceTech.

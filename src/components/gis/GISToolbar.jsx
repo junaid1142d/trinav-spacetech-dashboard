@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Ruler, Bookmark, Crosshair, Navigation, Maximize, Square, MapPin } from 'lucide-react';
+import { Ruler, Bookmark, Crosshair, Square } from 'lucide-react';
 
 const BOOKMARKS = [
   { name: 'Chennai Observatory', bounds: [[12.9, 80.1], [13.2, 80.4]] },

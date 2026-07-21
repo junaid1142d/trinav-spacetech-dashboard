@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Database, Cpu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
@@ -8,6 +8,7 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import DataExplorerPage from './pages/DataExplorerPage';
 import SensorThingsExplorer from './components/sensorthings/SensorThingsExplorer';
 import OGCViewerPage from './pages/OGCViewerPage';
+import CompliancePage from './pages/CompliancePage';
 import SettingsPage from './pages/SettingsPage';
 import AboutPage from './pages/AboutPage';
 import { generateMockObservations } from './utils/mockDataLoader';
@@ -24,15 +25,15 @@ export default function App() {
 
   useEffect(() => { setRawDataset(generateMockObservations()); }, []);
 
-  const convertPressure = (hpa) => {
+  const convertPressure = useCallback((hpa) => {
     if (pressureUnit === 'inHg') return parseFloat((hpa * 0.02953).toFixed(2));
     if (pressureUnit === 'mmHg') return parseFloat((hpa * 0.750062).toFixed(2));
     return hpa;
-  };
+  }, [pressureUnit]);
 
   const displayDataset = useMemo(() =>
     rawDataset.map(obs => ({ ...obs, Pressure_hPa: convertPressure(obs.Pressure_hPa) })),
-    [rawDataset, pressureUnit]
+    [rawDataset, convertPressure]
   );
 
   const handleDataLoaded = (data) => { setRawDataset(data); setSelectedStation(null); };
@@ -63,6 +64,7 @@ export default function App() {
       case 'explorer': return <DataExplorerPage dataset={displayDataset} />;
       case 'sensorthings': return <SensorThingsExplorer />;
       case 'ogc': return <OGCViewerPage />;
+      case 'compliance': return <CompliancePage />;
       case 'settings': return <SettingsPage pressureThresholds={pressureThresholds} setPressureThresholds={setPressureThresholds} pressureUnit={pressureUnit} setPressureUnit={setPressureUnit} onResetToDefault={handleReset} />;
       case 'about': return <AboutPage />;
       default: return <Dashboard dataset={displayDataset} onDataLoaded={handleDataLoaded} setActivePage={setActivePage} />;

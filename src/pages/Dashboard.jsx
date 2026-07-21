@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { ShieldAlert, TrendingDown, ChevronRight, Upload } from 'lucide-react';
 import DashboardOverview from '../components/DashboardOverview';
 import DataIngestion from '../components/DataIngestion';

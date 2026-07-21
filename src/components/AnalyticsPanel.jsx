@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  ResponsiveContainer, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine, Area, AreaChart
 } from 'recharts';
-import { TrendingUp, TrendingDown, Minus, Calendar, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
 
 const FILTERS = [
   { id: '24h', label: '24H' },

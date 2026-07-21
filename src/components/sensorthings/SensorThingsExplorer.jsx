@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal, Play, Copy, Check, Server, Filter, Database, ArrowRight } from 'lucide-react';
+import { Play, Copy, Check, Server, Filter } from 'lucide-react';
 
 const ENDPOINTS = [
   'Things',
@@ -74,6 +74,8 @@ export default function SensorThingsExplorer() {
 
   useEffect(() => {
     executeQuery();
+    // This initial refresh should run when the collection changes, not while a user types query fields.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEndpoint]);
 
   const applyPreset = (preset) => {

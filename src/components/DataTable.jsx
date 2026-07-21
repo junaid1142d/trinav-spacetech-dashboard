@@ -99,6 +99,14 @@ export default function DataTable({ dataset }) {
             <option value="">All Cities</option>
             {options.cities.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          <select
+            value={station}
+            onChange={e => { setStation(e.target.value); setPage(1); }}
+            className="px-3 py-1.5 bg-[#111] border border-white/[0.08] rounded-lg text-xs text-white font-mono outline-none cursor-pointer hover:border-white/20 transition-colors appearance-none w-40"
+          >
+            <option value="">All Stations</option>
+            {options.stations.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
           <button
             onClick={exportCSV}
             disabled={!filtered.length}

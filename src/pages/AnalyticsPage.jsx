@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-  ResponsiveContainer, BarChart, Bar, LineChart, Line,
+  ResponsiveContainer, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Cell, AreaChart, Area
 } from 'recharts';
 import { Activity, BarChart3, LineChart as LineIcon } from 'lucide-react';

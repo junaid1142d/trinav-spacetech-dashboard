@@ -124,13 +124,24 @@ Coimbatore High-Altitude Center,Coimbatore,11.0168,76.9558,2026-06-16 08:00:00,1
               ['Observations', metrics.totalRecords.toLocaleString()],
               ['Stations', metrics.totalStations],
               ['Mean Pressure', `${metrics.avgPressure} hPa`],
-              ['Date Range', `${metrics.dateRange.start}`, <ArrowRight className="inline w-3 h-3 mx-0.5 text-[#525252]" />, metrics.dateRange.end],
             ].map(([label, ...vals]) => (
               <div key={label} className="flex justify-between items-center">
                 <span className="text-[#525252]">{label}</span>
-                <span className="text-white font-semibold">{vals}</span>
+                <span className="text-white font-semibold">
+                  {vals.map((value, index) => (
+                    <React.Fragment key={`${label}-${index}`}>{value}</React.Fragment>
+                  ))}
+                </span>
               </div>
             ))}
+            <div className="flex justify-between items-center">
+              <span className="text-[#525252]">Date Range</span>
+              <span className="text-white font-semibold">
+                {metrics.dateRange.start}
+                <ArrowRight className="inline w-3 h-3 mx-0.5 text-[#525252]" />
+                {metrics.dateRange.end}
+              </span>
+            </div>
           </div>
         </div>
         <p className="text-[9px] text-[#404040] font-mono mt-4 pt-3 border-t border-white/[0.04] leading-relaxed">
