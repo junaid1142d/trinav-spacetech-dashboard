@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polygon, WMSTileLayer, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import {
-  Crosshair, Home, Layers, LocateFixed, Maximize, Minimize, Search
+  Crosshair, Home, Layers, LocateFixed, Maximize, Minimize, Search, Plus, Minus
 } from 'lucide-react';
 
 const TN_BOUNDS = [[7.9, 76.2], [13.5, 80.6]];
@@ -119,6 +119,22 @@ function MapActions({ onHome, onLocate }) {
   const map = useMap();
   return (
     <div className="absolute top-3 left-3 z-[500] flex flex-col gap-2">
+      <div className="flex flex-col rounded-lg overflow-hidden border border-white/10 bg-[#0A0A0A]/95">
+        <button
+          title="Zoom in"
+          onClick={() => map.zoomIn()}
+          className="p-2 text-[#A3A3A3] hover:text-white transition-all border-b border-white/10"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <button
+          title="Zoom out"
+          onClick={() => map.zoomOut()}
+          className="p-2 text-[#A3A3A3] hover:text-white transition-all"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+      </div>
       <button title="Home extent" onClick={() => { map.fitBounds(TN_BOUNDS, { padding: [45, 45] }); onHome?.(); }}
         className="p-2 rounded-lg bg-[#0A0A0A]/95 border border-white/10 text-[#A3A3A3] hover:text-white transition-all">
         <Home className="w-4 h-4" />
@@ -177,6 +193,24 @@ const getWfsStyle = (feature) => {
   return { color: '#22D3EE', weight: 1.5, opacity: 0.8, fillColor: '#22D3EE', fillOpacity: 0.1 };
 };
 const wfsPointToLayer = (feature, latlng) => L.circleMarker(latlng, { radius: 5, ...getWfsStyle(feature) });
+const bindWfsPopup = (feature, layer) => {
+  const entries = Object.entries(feature?.properties || {})
+    .filter(([, value]) => value != null && value !== '')
+    .slice(0, 8);
+  const rows = entries.map(([key, value]) => (
+    `<div style="display:flex;justify-content:space-between;gap:8px;margin:2px 0;">
+      <span style="color:#888;">${key}</span>
+      <span style="color:#fff;font-weight:600;">${String(value)}</span>
+    </div>`
+  )).join('');
+  const html = `
+    <div style="min-width:180px;font-size:11px;">
+      <div style="font-weight:700;color:#fff;margin-bottom:6px;">${feature?.geometry?.type || 'Feature'}</div>
+      ${rows || '<span style="color:#aaa;">No attributes</span>'}
+    </div>
+  `;
+  layer.bindPopup(html);
+};
 
 export default function TamilNaduMap({
   stations,
@@ -321,7 +355,7 @@ export default function TamilNaduMap({
         {cursor ? `${cursor.lat.toFixed(4)}, ${cursor.lng.toFixed(4)}` : 'Move cursor for coordinates'}
       </div>
 
-      <MapContainer center={[11.1271, 78.6569]} zoom={7} style={{ width: '100%', height: '100%' }} scrollWheelZoom>
+      <MapContainer center={[11.1271, 78.6569]} zoom={7} style={{ width: '100%', height: '100%' }} scrollWheelZoom zoomControl={false}>
         <TileLayer key={basemap} url={BASEMAPS[basemap].url} attribution={BASEMAPS[basemap].attribution} />
         {activeWMSLayer && (
           <WMSTileLayer
@@ -346,7 +380,13 @@ export default function TamilNaduMap({
           />
         )}
         {wfsData?.features?.length > 0 && (
-          <GeoJSON key={`wfs-${wfsData.features.length}`} data={wfsData} style={getWfsStyle} pointToLayer={wfsPointToLayer} />
+          <GeoJSON
+            key={`wfs-${wfsData.features.length}`}
+            data={wfsData}
+            style={getWfsStyle}
+            pointToLayer={wfsPointToLayer}
+            onEachFeature={bindWfsPopup}
+          />
         )}
         <ScaleControl />
         <CoordinateTracker onMove={setCursor} />

@@ -39,6 +39,17 @@ function getDirectChildText(node, localName) {
   return child?.textContent?.trim() || '';
 }
 
+function extractOgcException(text) {
+  if (!text || !text.trim().startsWith('<')) return null;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'application/xml');
+  const exceptionText =
+    doc.querySelector('ExceptionText')?.textContent?.trim() ||
+    doc.querySelector('ServiceException')?.textContent?.trim() ||
+    doc.querySelector('ows\\:ExceptionText')?.textContent?.trim();
+  return exceptionText || null;
+}
+
 // Fetch with timing, error handling, and logging
 async function timedFetch(url, label, signal) {
   const start = Date.now();
@@ -114,7 +125,7 @@ export async function wfsGetCapabilities(serviceUrl, signal) {
 
 // ─── WFS: GetFeature (GeoJSON, BBOX) ────────────────────────
 export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatures = 200) {
-  const requestParams = {
+  const requestParamsV2 = {
     SERVICE: 'WFS',
     VERSION: '2.0.0',
     REQUEST: 'GetFeature',
@@ -123,14 +134,36 @@ export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatu
     srsName: 'EPSG:4326',
     count: maxFeatures,
   };
-  if (bbox) requestParams.bbox = `${bbox},EPSG:4326`;
+  if (bbox) requestParamsV2.bbox = `${bbox},EPSG:4326`;
 
-  const url = buildOgcUrl(serviceUrl, requestParams);
-  const text = await timedFetch(url, `WFS GetFeature: ${typeName}`, signal);
+  const urlV2 = buildOgcUrl(serviceUrl, requestParamsV2);
+  const textV2 = await timedFetch(urlV2, `WFS GetFeature 2.0.0: ${typeName}`, signal);
   try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error('Invalid GeoJSON response from WFS');
+    return JSON.parse(textV2);
+  } catch (parseError) {
+    const ogcException = extractOgcException(textV2);
+    if (!ogcException) throw new Error('Invalid GeoJSON response from WFS');
+
+    const requestParamsV11 = {
+      SERVICE: 'WFS',
+      VERSION: '1.1.0',
+      REQUEST: 'GetFeature',
+      typeName,
+      outputFormat: 'application/json',
+      srsName: 'EPSG:4326',
+      maxFeatures,
+    };
+    if (bbox) requestParamsV11.bbox = `${bbox},EPSG:4326`;
+
+    const urlV11 = buildOgcUrl(serviceUrl, requestParamsV11);
+    const textV11 = await timedFetch(urlV11, `WFS GetFeature 1.1.0 fallback: ${typeName}`, signal);
+    try {
+      return JSON.parse(textV11);
+    } catch {
+      const fallbackException = extractOgcException(textV11);
+      const message = fallbackException || ogcException || parseError?.message || 'Failed to parse WFS response';
+      throw new Error(`WFS error: ${message}`);
+    }
   }
 }
 

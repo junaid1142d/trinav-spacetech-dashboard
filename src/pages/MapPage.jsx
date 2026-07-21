@@ -32,12 +32,16 @@ export default function MapPage({ dataset, selectedStation, setSelectedStation, 
   const [loadingWFSData, setLoadingWFSData] = useState(false);
   const wfsAbortRef = useRef(null);
   const wfsRequestIdRef = useRef(0);
+  const wmsSwitchTimerRef = useRef(null);
 
   useEffect(() => {
     if (timestamps.length) setSimIndex(timestamps.length - 1);
   }, [timestamps]);
 
-  useEffect(() => () => wfsAbortRef.current?.abort(), []);
+  useEffect(() => () => {
+    wfsAbortRef.current?.abort();
+    if (wmsSwitchTimerRef.current) window.clearTimeout(wmsSwitchTimerRef.current);
+  }, []);
 
   const currentObs = useMemo(() => {
     if (!dataset?.length || !timestamps.length) return [];
@@ -94,8 +98,25 @@ export default function MapPage({ dataset, selectedStation, setSelectedStation, 
 
   const toggleWMSLayer = (layer) => {
     setWmsLoadError(null);
-    setWmsLoadState(layer ? 'loading' : 'idle');
-    setActiveWMSLayer(layer);
+    if (wmsSwitchTimerRef.current) window.clearTimeout(wmsSwitchTimerRef.current);
+
+    if (!layer) {
+      setWmsLoadState('idle');
+      setActiveWMSLayer(null);
+      return;
+    }
+
+    if (activeWMSLayer?.name === layer.name) {
+      return;
+    }
+
+    // Force unmount old WMS before mounting the new one to avoid stale-tile lag.
+    setActiveWMSLayer(null);
+    setWmsLoadState('loading');
+    wmsSwitchTimerRef.current = window.setTimeout(() => {
+      setActiveWMSLayer(layer);
+      wmsSwitchTimerRef.current = null;
+    }, 0);
   };
 
   const toggleWFSLayer = (layer) => {
