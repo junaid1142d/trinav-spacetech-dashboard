@@ -65,20 +65,30 @@ This platform integrates public OGC services with the Trinav SpaceTech SensorThi
   ?SERVICE=WFS
   &VERSION=2.0.0
   &REQUEST=GetFeature
-  &TYPENAMES=ne:populated_places
+  &TYPENAMES=ne:ne_10m_populated_places
   &OUTPUTFORMAT=application/json
   &COUNT=100
   &BBOX=7.9,76.2,13.5,80.6,EPSG:4326
 ```
 
-> **Axis order note:** WFS 2.0.0 combined with `srsName=EPSG:4326` uses the
-> CRS authority's declared axis order, which for EPSG:4326 is **(lat, lon)**
-> — not (lon, lat). The 1.1.0 fallback below keeps GeoServer's legacy
-> (lon, lat) order. The client stores district/layer BBOXes as lon,lat
-> internally and swaps the order per WFS version at request-build time
-> (`formatBbox()` in `src/services/api.js`). Requests that skip this swap
-> silently return zero features instead of erroring, which is why this is
-> called out explicitly.
+> **Axis order note:** WFS 2.0.0 combined with `srsName=EPSG:4326`
+> technically requires the CRS authority's declared axis order — **(lat,
+> lon)** for EPSG:4326, not (lon, lat) — but public GeoServer demo
+> instances inconsistently honor this (many force lon/lat regardless of
+> version). Rather than hard-code one assumption, the client tries, in
+> order: WFS 2.0.0 with (lat,lon), WFS 2.0.0 with (lon,lat), then WFS
+> 1.1.0 with (lon,lat), stopping at the first success (`wfsGetFeature()`
+> in `src/services/api.js`). This only matters if you change the BBOX;
+> the curated layers below already work against this server as-is.
+
+> **Layer inventory note:** `ahocevar.com/geoserver/wfs` publishes exactly
+> four feature types: `ne:ne_10m_populated_places`, `ne:ne_10m_roads`,
+> `topp:states` (US-only), and `osm:water_areas` (EPSG:900913, not 4326).
+> Any other `TYPENAMES` value returns an HTTP 400 "unknown feature type" —
+> confirmed directly against this server's `GetCapabilities` response.
+> Verify against the live `GetCapabilities` output before adding a new
+> curated WFS layer, rather than assuming a Natural Earth layer name is
+> published just because it exists in the Natural Earth dataset generally.
 
 **DescribeFeatureType** — Inspect schema of a feature type:
 ```
@@ -86,15 +96,15 @@ This platform integrates public OGC services with the Trinav SpaceTech SensorThi
   ?SERVICE=WFS
   &VERSION=2.0.0
   &REQUEST=DescribeFeatureType
-  &TYPENAMES=ne:populated_places
+  &TYPENAMES=ne:ne_10m_populated_places
 ```
 
 ### Implementation Notes
 - Feature type discovery via `GetCapabilities` XML parsing.
-- `GetFeature` requests use a bounding box scoped to Tamil Nadu (76.2°E–80.6°E, 7.9°N–13.5°N), reordered to (lat,lon) for WFS 2.0.0 per the axis-order note above.
+- `GetFeature` requests use a bounding box scoped to Tamil Nadu (76.2°E–80.6°E, 7.9°N–13.5°N); the client tries multiple axis orders per the note above rather than assuming one.
 - Response is parsed as GeoJSON and rendered as interactive vector layers on the map via React Leaflet `GeoJSON` component.
 - Users can click on any vector feature to inspect its attributes in the detail panel.
-- The Request Inspector logs every OGC HTTP call with status code, latency (ms), response size (KB), and URL for debugging.
+- The Request Inspector logs every OGC HTTP call with status code, latency (ms), response size (KB), and URL for debugging — including every fallback attempt, so a layer that needed a retry is visible, not hidden.
 
 ---
 

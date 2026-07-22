@@ -25,13 +25,6 @@ export const CURATED_WMS_LAYERS = [
     icon: '🛰️',
   },
   {
-    name: 'VIIRS_SNPP_CorrectedReflectance_TrueColor',
-    title: 'Satellite Imagery (VIIRS True Color)',
-    category: 'Base Imagery',
-    relevance: 'VIIRS sensor provides complementary coverage with 375m resolution.',
-    icon: '🛰️',
-  },
-  {
     name: 'MODIS_Terra_NDVI_8Day',
     title: 'Vegetation Index (NDVI 8-Day)',
     category: 'Land Cover',
@@ -45,41 +38,21 @@ export const CURATED_WMS_LAYERS = [
     relevance: 'Solar panel efficiency drops ~0.4%/°C above 25°C. Critical for panel selection and energy yield modeling.',
     icon: '🌡️',
   },
-  {
-    name: 'MODIS_Aqua_Cloud_Fraction_Day_Monthly',
-    title: 'Cloud Fraction (Monthly)',
-    category: 'Solar Resource',
-    relevance: 'Cloud cover directly reduces solar irradiance. Districts with <30% cloud fraction are preferred for solar parks.',
-    icon: '☁️',
-  },
-  {
-    name: 'MODIS_Combined_Value_Added_AOD',
-    title: 'Aerosol Optical Depth',
-    category: 'Solar Resource',
-    relevance: 'Aerosol particles scatter sunlight, reducing direct normal irradiance (DNI). Critical for CSP technology selection.',
-    icon: '💨',
-  },
-  {
-    name: 'ASTER_GDEM_Color_Shaded_Relief',
-    title: 'Terrain Elevation (ASTER)',
-    category: 'Topography',
-    relevance: 'Elevation and slope analysis for wind turbine placement. Ridge lines and elevated plateaus have higher wind speeds.',
-    icon: '⛰️',
-  },
-  {
-    name: 'VIIRS_SNPP_DayNightBand_At_Sensor_Radiance',
-    title: 'Night Lights (VIIRS Day/Night)',
-    category: 'Infrastructure',
-    relevance: 'Night light intensity correlates with grid infrastructure density and urbanization. Identifies transmission corridors.',
-    icon: '🔦',
-  },
 ];
 
 // ─── Curated WFS Layers (GeoServer) ─────────────────
-// Layers filtered for Tamil Nadu renewable energy context
+// IMPORTANT: this server (ahocevar.com/geoserver/wfs) publishes exactly
+// four feature types: ne:ne_10m_populated_places, ne:ne_10m_roads,
+// topp:states (US-only), and osm:water_areas (EPSG:900913, not 4326).
+// Verified directly against its GetCapabilities response. Only the two
+// globally-relevant, EPSG:4326-native layers are listed here — do not add
+// invented typeNames (e.g. "ne:coastlines", "ne:lakes") without confirming
+// they exist in that server's actual GetCapabilities first; GeoServer
+// returns an HTTP 400 "unknown feature type" for anything else, and no
+// amount of BBOX/axis-order fixing will change that.
 export const CURATED_WFS_LAYERS = [
   {
-    name: 'ne:populated_places',
+    name: 'ne:ne_10m_populated_places',
     title: 'Populated Places (Cities & Towns)',
     category: 'Infrastructure',
     relevance: 'Urban centers indicate grid infrastructure proximity and labor availability for solar/wind park construction.',
@@ -88,40 +61,13 @@ export const CURATED_WFS_LAYERS = [
     maxFeatures: 50,
   },
   {
-    name: 'ne:coastlines',
-    title: 'Coastline Boundaries',
-    category: 'Geography',
-    relevance: 'Coastal zones have highest wind potential. Identifies offshore wind opportunity zones along Tamil Nadu coast.',
-    icon: '🌊',
-    defaultBBOX: '76.0,7.5,81.0,14.0',
-    maxFeatures: 50,
-  },
-  {
-    name: 'ne:boundary_lines_land',
-    title: 'Land Boundaries (Administrative)',
-    category: 'Administrative',
-    relevance: 'State and international boundaries define regulatory jurisdictions for renewable energy permits.',
-    icon: '🗺️',
-    defaultBBOX: '76.0,7.5,81.0,14.0',
-    maxFeatures: 30,
-  },
-  {
-    name: 'ne:rivers_lake_centerlines',
-    title: 'Rivers & Lake Centerlines',
-    category: 'Hydrology',
-    relevance: 'Water bodies are exclusion zones for solar parks. River corridors indicate flood risk for ground-mounted PV.',
-    icon: '🏞️',
+    name: 'ne:ne_10m_roads',
+    title: 'Major Roads',
+    category: 'Infrastructure',
+    relevance: 'Road proximity affects construction logistics and transmission line routing for solar/wind sites.',
+    icon: '🛣️',
     defaultBBOX: '76.2,7.9,80.6,13.5',
     maxFeatures: 80,
-  },
-  {
-    name: 'ne:lakes',
-    title: 'Lakes & Reservoirs',
-    category: 'Hydrology',
-    relevance: 'Large water bodies are exclusion zones but floating solar (FSPV) opportunities exist on reservoirs.',
-    icon: '💧',
-    defaultBBOX: '76.2,7.9,80.6,13.5',
-    maxFeatures: 50,
   },
 ];
 
