@@ -132,59 +132,70 @@ export async function wfsGetCapabilities(serviceUrl, signal) {
   return layers;
 }
 
-// WFS 2.0.0 + srsName=EPSG:4326 uses the CRS authority's declared axis order,
-// which for EPSG:4326 is (lat, lon) — NOT (lon, lat). The WFS 1.1.0 fallback
-// follows GeoServer's legacy (lon, lat) convention. Curated layer BBOXes are
-// stored as lon,lat; this swaps order per-version at request-build time.
-function formatBbox(bbox, version) {
+// WFS 2.0.0 + srsName=EPSG:4326 is *supposed* to use the CRS authority's
+// declared axis order — (lat, lon) for EPSG:4326 — per the spec. In
+// practice, many public GeoServer demos (including some configurations of
+// ahocevar.com's) run with axis order forcing set to lon/lat regardless of
+// version, because strict CITE compliance breaks too many naive clients.
+// Rather than hard-code one assumption and silently return wrong/empty
+// results on servers configured the other way, both orders are tried.
+function formatBbox(bbox, axisOrder) {
   const [minLon, minLat, maxLon, maxLat] = bbox.split(',').map(Number);
-  return version === '2.0.0'
+  return axisOrder === 'latlon'
     ? `${minLat},${minLon},${maxLat},${maxLon},EPSG:4326`
     : `${minLon},${minLat},${maxLon},${maxLat},EPSG:4326`;
 }
 
-// ─── WFS: GetFeature (GeoJSON, BBOX) ────────────────────────
-export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatures = 200) {
-  const requestParamsV2 = {
+async function attemptWfsRequest(serviceUrl, typeName, bbox, signal, maxFeatures, version, axisOrder) {
+  const isV2 = version === '2.0.0';
+  const params = {
     SERVICE: 'WFS',
-    VERSION: '2.0.0',
+    VERSION: version,
     REQUEST: 'GetFeature',
-    typeNames: typeName,
     outputFormat: 'application/json',
     srsName: 'EPSG:4326',
-    count: maxFeatures,
+    ...(isV2
+      ? { typeNames: typeName, count: maxFeatures }
+      : { typeName, maxFeatures }),
   };
-  if (bbox) requestParamsV2.bbox = formatBbox(bbox, '2.0.0');
+  if (bbox) params.bbox = formatBbox(bbox, axisOrder);
 
-  const urlV2 = buildOgcUrl(serviceUrl, requestParamsV2);
-  const textV2 = await timedFetch(urlV2, `WFS GetFeature 2.0.0: ${typeName}`, signal);
+  const url = buildOgcUrl(serviceUrl, params);
+  const label = `WFS GetFeature ${version} (${axisOrder}): ${typeName}`;
+
   try {
-    return JSON.parse(textV2);
-  } catch (parseError) {
-    const ogcException = extractOgcException(textV2);
-    if (!ogcException) throw new Error('Invalid GeoJSON response from WFS');
-
-    const requestParamsV11 = {
-      SERVICE: 'WFS',
-      VERSION: '1.1.0',
-      REQUEST: 'GetFeature',
-      typeName,
-      outputFormat: 'application/json',
-      srsName: 'EPSG:4326',
-      maxFeatures,
-    };
-    if (bbox) requestParamsV11.bbox = formatBbox(bbox, '1.1.0');
-
-    const urlV11 = buildOgcUrl(serviceUrl, requestParamsV11);
-    const textV11 = await timedFetch(urlV11, `WFS GetFeature 1.1.0 fallback: ${typeName}`, signal);
+    const text = await timedFetch(url, label, signal);
     try {
-      return JSON.parse(textV11);
-    } catch {
-      const fallbackException = extractOgcException(textV11);
-      const message = fallbackException || ogcException || parseError?.message || 'Failed to parse WFS response';
-      throw new Error(`WFS error: ${message}`);
+      return { ok: true, data: JSON.parse(text) };
+    } catch (parseError) {
+      const exception = extractOgcException(text);
+      return { ok: false, error: exception || parseError?.message || 'Invalid GeoJSON response from WFS' };
     }
+  } catch (fetchError) {
+    return { ok: false, error: fetchError?.message || 'WFS request failed' };
   }
+}
+
+// ─── WFS: GetFeature (GeoJSON, BBOX) ────────────────────────
+// Tries, in order: WFS 2.0.0 with (lat,lon) bbox, WFS 2.0.0 with (lon,lat)
+// bbox, WFS 1.1.0 with (lon,lat) bbox. Returns the first successful parse;
+// throws a combined error only if every attempt fails, so a real problem
+// (bad typeName, unreachable server) is still surfaced clearly.
+export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatures = 200) {
+  const attempts = [
+    ['2.0.0', 'latlon'],
+    ['2.0.0', 'lonlat'],
+    ['1.1.0', 'lonlat'],
+  ];
+
+  const errors = [];
+  for (const [version, axisOrder] of attempts) {
+    const result = await attemptWfsRequest(serviceUrl, typeName, bbox, signal, maxFeatures, version, axisOrder);
+    if (result.ok) return result.data;
+    errors.push(`${version}/${axisOrder}: ${result.error}`);
+  }
+
+  throw new Error(`WFS error: ${errors[errors.length - 1]}`);
 }
 
 // ─── WMS: Build GetMap URL ───────────────────────────────────

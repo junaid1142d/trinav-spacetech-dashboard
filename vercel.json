@@ -1,6 +1,11 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 15
+    }
+  },
   "rewrites": [
     { "source": "/api/ogc/:path*", "destination": "/api" },
     { "source": "/v1.1/:path*", "destination": "/api" },

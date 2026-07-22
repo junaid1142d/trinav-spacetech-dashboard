@@ -15,7 +15,12 @@ const OGC_UPSTREAMS = {
   },
 };
 
-const REQUEST_TIMEOUT_MS = 20000;
+// Kept comfortably under the maxDuration configured in vercel.json (see
+// "functions" config) so the proxy itself times out and returns a clean
+// 504 JSON error before the platform kills the function mid-request —
+// the latter shows up in the browser as tiles stuck on "loading" forever
+// with no error surfaced.
+const REQUEST_TIMEOUT_MS = 8000;
 const CAPABILITIES_CACHE_TTL_MS = 5 * 60 * 1000;
 const capabilitiesCache = new Map();
 
