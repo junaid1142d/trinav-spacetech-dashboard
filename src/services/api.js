@@ -7,13 +7,13 @@
 export const OGC_SERVICES = {
   NASA_GIBS: {
     name: 'NASA GIBS (WMS)',
-    url: 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi',
+    url: '/api/ogc/wms',
     type: 'WMS',
     version: '1.3.0',
   },
   GEOSERVER: {
     name: 'GeoServer WFS Demo',
-    url: 'https://ahocevar.com/geoserver/wfs',
+    url: '/api/ogc/wfs',
     type: 'WFS',
     version: '2.0.0',
   },
@@ -77,8 +77,17 @@ export async function wmsGetCapabilities(serviceUrl, signal) {
     REQUEST: 'GetCapabilities',
   });
   const xml = await timedFetch(url, 'WMS GetCapabilities', signal);
+
+  const exception = extractOgcException(xml);
+  if (exception) {
+    throw new Error(`WMS error: ${exception}`);
+  }
+
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'application/xml');
+  if (doc.querySelector('parsererror')) {
+    throw new Error('WMS GetCapabilities returned malformed XML.');
+  }
 
   const layerNodes = Array.from(doc.getElementsByTagNameNS('*', 'Layer'));
   const layers = [];
@@ -123,6 +132,17 @@ export async function wfsGetCapabilities(serviceUrl, signal) {
   return layers;
 }
 
+// WFS 2.0.0 + srsName=EPSG:4326 uses the CRS authority's declared axis order,
+// which for EPSG:4326 is (lat, lon) — NOT (lon, lat). The WFS 1.1.0 fallback
+// follows GeoServer's legacy (lon, lat) convention. Curated layer BBOXes are
+// stored as lon,lat; this swaps order per-version at request-build time.
+function formatBbox(bbox, version) {
+  const [minLon, minLat, maxLon, maxLat] = bbox.split(',').map(Number);
+  return version === '2.0.0'
+    ? `${minLat},${minLon},${maxLat},${maxLon},EPSG:4326`
+    : `${minLon},${minLat},${maxLon},${maxLat},EPSG:4326`;
+}
+
 // ─── WFS: GetFeature (GeoJSON, BBOX) ────────────────────────
 export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatures = 200) {
   const requestParamsV2 = {
@@ -134,7 +154,7 @@ export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatu
     srsName: 'EPSG:4326',
     count: maxFeatures,
   };
-  if (bbox) requestParamsV2.bbox = `${bbox},EPSG:4326`;
+  if (bbox) requestParamsV2.bbox = formatBbox(bbox, '2.0.0');
 
   const urlV2 = buildOgcUrl(serviceUrl, requestParamsV2);
   const textV2 = await timedFetch(urlV2, `WFS GetFeature 2.0.0: ${typeName}`, signal);
@@ -153,7 +173,7 @@ export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatu
       srsName: 'EPSG:4326',
       maxFeatures,
     };
-    if (bbox) requestParamsV11.bbox = `${bbox},EPSG:4326`;
+    if (bbox) requestParamsV11.bbox = formatBbox(bbox, '1.1.0');
 
     const urlV11 = buildOgcUrl(serviceUrl, requestParamsV11);
     const textV11 = await timedFetch(urlV11, `WFS GetFeature 1.1.0 fallback: ${typeName}`, signal);

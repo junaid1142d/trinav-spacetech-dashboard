@@ -41,6 +41,12 @@ function appendQueryParams(url, query) {
   return next.toString();
 }
 
+// WFS 2.0.0 requests carrying srsName/bbox in EPSG:4326 use the CRS
+// authority's declared axis order (lat, lon), not (lon, lat). Requests
+// arrive here already built by the client per-version (see
+// src/services/api.js formatBbox), so this proxy stays a transparent
+// passthrough — this comment documents why bbox values differ by version.
+
 function createCacheKey(target, query) {
   const pairs = Object.entries(query)
     .map(([key, value]) => [key, Array.isArray(value) ? value.join(',') : String(value)])

@@ -31,8 +31,11 @@ src/
   utils/             Mock observation loader and request builders
   data/              Tamil Nadu district and curated OGC layer data
 server/
-  routes/            SensorThings route handlers
+  app.js             Shared Express app (routes only) — used by both server.js and api/index.js
+  routes/            SensorThings and OGC proxy route handlers
   sensorthings/      Conceptual SensorThings data model and OData parser
+api/
+  index.js           Vercel serverless entrypoint, wraps server/app.js
 docs/                OGC reference and compliance notes
 public/              Static icons
 ```
@@ -73,12 +76,38 @@ SensorThings support is conceptual and educational. The repository models Sensor
 
 ## Deployment
 
-The app can be hosted as a Node/Express app on Azure App Service after running `npm run build`. The configured target from the project brief is:
+The app is deployable two ways, sharing the same route logic in `server/app.js`:
+
+### Azure App Service (primary target)
 
 - App Service: `trinav-spacetech-junaid`
 - Resource group: `trinav-spacetech-rg`
+- Runtime: Node 20 (Linux), start command `npm start` → `node server.js`
 
-Deployment requires valid Azure CLI login or configured CI/CD credentials.
+Deployment is via the GitHub Actions workflow at `.github/workflows/azure-webapps-deploy.yml`, which runs on every push to `main`. It builds the frontend, prunes to production dependencies, and deploys the result with `azure/webapps-deploy@v3`.
+
+**One-time setup required in your GitHub repo and Azure portal:**
+1. In Azure Portal → App Service `trinav-spacetech-junaid` → **Get publish profile**, download the `.PublishSettings` file.
+2. In GitHub → repo **Settings → Secrets and variables → Actions**, add a secret named `AZURE_WEBAPP_PUBLISH_PROFILE` with the full contents of that file.
+3. (Recommended) In Azure Portal → **Configuration → Application settings**, set `SCM_DO_BUILD_DURING_DEPLOYMENT=false`. The workflow already builds and prunes dependencies before upload, so a second Oryx build on the server side is redundant and slower.
+
+After that, `git push origin main` triggers a deploy automatically. You can also trigger it manually from the **Actions** tab (`workflow_dispatch`).
+
+### Vercel
+
+Vercel builds the static frontend (`vite build` → `dist/`) and runs `/api/ogc/*` and `/v1.1/*` as a single serverless function (`api/index.js`, wrapping the same `server/app.js` Express app used on Azure). `vercel.json` wires the rewrites. No extra configuration is needed beyond connecting the GitHub repo in the Vercel dashboard — it auto-detects the Vite build and the `api/` function.
+
+### Local production build
+
+```bash
+npm install
+npm run build
+npm start
+```
+
+Open `http://localhost:8080/` and `http://localhost:8080/v1.1/`.
+
+Deployment requires valid Azure CLI login or configured CI/CD credentials, and (for Vercel) a connected GitHub repo.
 
 ## Verification
 

@@ -1,32 +1,21 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import sensorThingsRouter from './server/routes/sensorthings.js';
-import ogcProxyRouter from './server/routes/ogcProxy.js';
+import app from './server/app.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-const app = express();
 const port = process.env.PORT || 8080;
-
-// CORS & JSON Body Parsing
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  next();
-});
-app.use(express.json());
-
-// ── Mount OGC SensorThings API v1.1 Router ─────────────────────────
-app.use('/v1.1', sensorThingsRouter);
-app.use('/api/ogc', ogcProxyRouter);
 
 // ── Serve Production Built Frontend ────────────────────────────────
 app.use(express.static(join(__dirname, 'dist')));
 
 // SPA Catchall
-app.get('*', (req, res) => {
+// NOTE: Express 5 (path-to-regexp v8) rejects a bare '*' route pattern —
+// it throws a PathError at process startup, before the server can bind to
+// a port. Since this handler is last in the stack anyway, a path-less
+// app.use() serves as the catch-all without needing wildcard syntax.
+app.use((req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 

@@ -61,6 +61,14 @@ export function buildDescribeFeatureTypeUrl(service) {
 }
 
 export function buildWfsFeatureUrl(service, extent) {
+  // extent is [minLon, minLat, maxLon, maxLat]. WFS 2.0.0 + EPSG:4326 uses
+  // the CRS authority's (lat, lon) axis order; earlier WFS versions use
+  // (lon, lat). Swap only for 2.0.0 to avoid silently-empty BBOX results.
+  const [minLon, minLat, maxLon, maxLat] = extent;
+  const orderedExtent = service.version === '2.0.0'
+    ? [minLat, minLon, maxLat, maxLon]
+    : [minLon, minLat, maxLon, maxLat];
+
   const params = new URLSearchParams({
     service: 'WFS',
     version: service.version,
@@ -68,7 +76,7 @@ export function buildWfsFeatureUrl(service, extent) {
     typeName: service.typeName,
     outputFormat: service.outputFormat,
     srsName: service.crs,
-    bbox: `${extent.join(',')},${service.crs}`
+    bbox: `${orderedExtent.join(',')},${service.crs}`
   });
 
   return `${service.endpoint}?${params.toString()}`;

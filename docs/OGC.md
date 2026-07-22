@@ -6,7 +6,8 @@ This platform integrates public OGC services with the Trinav SpaceTech SensorThi
 
 ### Endpoint
 - **Provider:** NASA Global Imagery Browse Services (GIBS)
-- **URL:** `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi`
+- **App proxy URL (what the client calls):** `/api/ogc/wms`
+- **Upstream (what the proxy forwards to):** `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi`
 - **Version:** 1.3.0
 - **CRS:** EPSG:3857
 
@@ -14,12 +15,12 @@ This platform integrates public OGC services with the Trinav SpaceTech SensorThi
 
 **GetCapabilities** — Discover all available layers:
 ```
-https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities
+/api/ogc/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities
 ```
 
 **GetMap** — Render a raster tile as a PNG overlay:
 ```
-https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi
+/api/ogc/wms
   ?SERVICE=WMS
   &VERSION=1.3.0
   &REQUEST=GetMap
@@ -38,6 +39,7 @@ https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi
 - The user selects a layer from the parsed list; the application renders it as a `WMSTileLayer` via React Leaflet.
 - Opacity is adjustable in real-time (10%–100%).
 - Available layers include MODIS imagery, vegetation indices, temperature, cloud cover, and aerosol data.
+- `GetCapabilities` responses are checked for an OGC `ServiceExceptionReport` before parsing. If GIBS returns an exception (e.g. malformed request), it now surfaces as a visible error in the WMS panel instead of silently showing zero layers.
 
 ---
 
@@ -45,7 +47,8 @@ https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi
 
 ### Endpoint
 - **Provider:** GeoServer public demo instance (ahocevar.com)
-- **URL:** `https://ahocevar.com/geoserver/wfs`
+- **App proxy URL (what the client calls):** `/api/ogc/wfs`
+- **Upstream (what the proxy forwards to):** `https://ahocevar.com/geoserver/wfs`
 - **Version:** 2.0.0
 - **Output Format:** `application/json` (GeoJSON)
 
@@ -53,24 +56,33 @@ https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi
 
 **GetCapabilities** — Discover feature types:
 ```
-https://ahocevar.com/geoserver/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities
+/api/ogc/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities
 ```
 
 **GetFeature** — Query vector data with BBOX (Tamil Nadu extent):
 ```
-https://ahocevar.com/geoserver/wfs
+/api/ogc/wfs
   ?SERVICE=WFS
   &VERSION=2.0.0
   &REQUEST=GetFeature
   &TYPENAMES=ne:populated_places
   &OUTPUTFORMAT=application/json
   &COUNT=100
-  &BBOX=76.2,7.9,80.6,13.5,EPSG:4326
+  &BBOX=7.9,76.2,13.5,80.6,EPSG:4326
 ```
+
+> **Axis order note:** WFS 2.0.0 combined with `srsName=EPSG:4326` uses the
+> CRS authority's declared axis order, which for EPSG:4326 is **(lat, lon)**
+> — not (lon, lat). The 1.1.0 fallback below keeps GeoServer's legacy
+> (lon, lat) order. The client stores district/layer BBOXes as lon,lat
+> internally and swaps the order per WFS version at request-build time
+> (`formatBbox()` in `src/services/api.js`). Requests that skip this swap
+> silently return zero features instead of erroring, which is why this is
+> called out explicitly.
 
 **DescribeFeatureType** — Inspect schema of a feature type:
 ```
-https://ahocevar.com/geoserver/wfs
+/api/ogc/wfs
   ?SERVICE=WFS
   &VERSION=2.0.0
   &REQUEST=DescribeFeatureType
@@ -79,7 +91,7 @@ https://ahocevar.com/geoserver/wfs
 
 ### Implementation Notes
 - Feature type discovery via `GetCapabilities` XML parsing.
-- `GetFeature` requests use a bounding box scoped to Tamil Nadu (76.2°E–80.6°E, 7.9°N–13.5°N).
+- `GetFeature` requests use a bounding box scoped to Tamil Nadu (76.2°E–80.6°E, 7.9°N–13.5°N), reordered to (lat,lon) for WFS 2.0.0 per the axis-order note above.
 - Response is parsed as GeoJSON and rendered as interactive vector layers on the map via React Leaflet `GeoJSON` component.
 - Users can click on any vector feature to inspect its attributes in the detail panel.
 - The Request Inspector logs every OGC HTTP call with status code, latency (ms), response size (KB), and URL for debugging.
