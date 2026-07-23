@@ -87,7 +87,7 @@ export default function OGCViewerPage() {
   const [loadingWFSData, setLoadingWFSData] = useState(false);
   const [selectedWFSFeature, setSelectedWFSFeature] = useState(null);
   const [wfsError, setWfsError] = useState(null);
-  const [baseMap, setBaseMap] = useState('dark');
+  const [baseMap, setBaseMap] = useState('light');
 
   const abortRef = useRef(null);
   const tnBounds = [[7.9, 76.2], [13.5, 80.6]];

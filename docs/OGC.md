@@ -38,7 +38,8 @@ This platform integrates public OGC services with the Trinav SpaceTech SensorThi
 - Layer discovery is performed at runtime via `GetCapabilities` XML parsing.
 - The user selects a layer from the parsed list; the application renders it as a `WMSTileLayer` via React Leaflet.
 - Opacity is adjustable in real-time (10%–100%).
-- Available layers include MODIS imagery, vegetation indices, temperature, cloud cover, and aerosol data.
+- Available layers include MODIS/VIIRS true color imagery, 16-day NDVI, land surface temperature, and combined aerosol optical depth.
+- All curated layer names in `src/data/curatedOGCLayers.js` were verified directly against GIBS's live GetCapabilities response before being added. GIBS layer naming is inconsistent across products (e.g. `_L3_..._Monthly_Day` vs `..._Day_Monthly` vs `..._Daily_Day`), so a name that looks right is not a substitute for checking the actual capabilities document.
 - `GetCapabilities` responses are checked for an OGC `ServiceExceptionReport` before parsing. If GIBS returns an exception (e.g. malformed request), it now surfaces as a visible error in the WMS panel instead of silently showing zero layers.
 
 ---

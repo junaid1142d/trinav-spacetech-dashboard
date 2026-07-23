@@ -229,7 +229,7 @@ export default function TamilNaduMap({
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showBoundary, setShowBoundary] = useState(true);
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.55);
-  const [basemap, setBasemap] = useState('dark');
+  const [basemap, setBasemap] = useState('osm');
   const [search, setSearch] = useState('');
   const [districtSearch, setDistrictSearch] = useState('');
   const [coordSearch, setCoordSearch] = useState('');

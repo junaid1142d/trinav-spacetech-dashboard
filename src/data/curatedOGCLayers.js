@@ -15,7 +15,13 @@
  */
 
 // ─── Curated WMS Layers (NASA GIBS) ─────────────────
-// Only layers relevant to solar/wind energy site assessment
+// Every layer name below was verified against the live GetCapabilities
+// response at https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi
+// (or GIBS's own TWMS capabilities dump) before being added here. Do not
+// add a layer name from memory/guesswork -- GIBS's naming is inconsistent
+// across products (e.g. "_L3_..._Monthly_Day" vs "..._Day_Monthly" vs
+// "..._Daily_Day") and an unverified guess fails silently as a blank/stuck
+// tile rather than a clear error.
 export const CURATED_WMS_LAYERS = [
   {
     name: 'MODIS_Terra_CorrectedReflectance_TrueColor',
@@ -25,18 +31,32 @@ export const CURATED_WMS_LAYERS = [
     icon: '🛰️',
   },
   {
-    name: 'MODIS_Terra_NDVI_8Day',
-    title: 'Vegetation Index (NDVI 8-Day)',
+    name: 'VIIRS_SNPP_CorrectedReflectance_TrueColor',
+    title: 'Satellite Imagery (VIIRS True Color)',
+    category: 'Base Imagery',
+    relevance: 'VIIRS sensor provides complementary 375m-resolution coverage.',
+    icon: '🛰️',
+  },
+  {
+    name: 'MODIS_Terra_L3_NDVI_16Day',
+    title: 'Vegetation Index (NDVI 16-Day)',
     category: 'Land Cover',
     relevance: 'Identifies barren/low-vegetation zones ideal for solar park placement. Low NDVI = better solar suitability.',
     icon: '🌿',
   },
   {
-    name: 'MODIS_Terra_Land_Surface_Temp_Day_Monthly',
+    name: 'MODIS_Terra_Land_Surface_Temp_Day',
     title: 'Land Surface Temperature (Day)',
     category: 'Temperature',
     relevance: 'Solar panel efficiency drops ~0.4%/°C above 25°C. Critical for panel selection and energy yield modeling.',
     icon: '🌡️',
+  },
+  {
+    name: 'MODIS_Combined_Value_Added_AOD',
+    title: 'Aerosol Optical Depth (Combined)',
+    category: 'Solar Resource',
+    relevance: 'Aerosol particles scatter sunlight, reducing direct normal irradiance (DNI). Relevant to CSP/solar site selection.',
+    icon: '💨',
   },
 ];
 
