@@ -4,12 +4,7 @@ import { Database, Cpu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import MapPage from './pages/MapPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import DataExplorerPage from './pages/DataExplorerPage';
-import SensorThingsExplorer from './components/sensorthings/SensorThingsExplorer';
 import OGCViewerPage from './pages/OGCViewerPage';
-import CompliancePage from './pages/CompliancePage';
-import SettingsPage from './pages/SettingsPage';
 import AboutPage from './pages/AboutPage';
 import { generateMockObservations } from './utils/mockDataLoader';
 
@@ -20,8 +15,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rawDataset, setRawDataset] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
-  const [pressureThresholds, setPressureThresholds] = useState({ low: 1008, high: 1018 });
-  const [pressureUnit, setPressureUnit] = useState('hPa');
+  const [pressureUnit] = useState('hPa');
 
   useEffect(() => { setRawDataset(generateMockObservations()); }, []);
 
@@ -38,13 +32,6 @@ export default function App() {
 
   const handleDataLoaded = (data) => { setRawDataset(data); setSelectedStation(null); };
 
-  const handleReset = () => {
-    setRawDataset(generateMockObservations());
-    setSelectedStation(null);
-    setPressureThresholds({ low: 1008, high: 1018 });
-    setPressureUnit('hPa');
-  };
-
   const handleDownloadStation = (stationName) => {
     const logs = rawDataset.filter(o => o.Station === stationName);
     if (!logs.length) return;
@@ -60,12 +47,7 @@ export default function App() {
     switch (activePage) {
       case 'dashboard': return <Dashboard dataset={displayDataset} onDataLoaded={handleDataLoaded} setActivePage={setActivePage} />;
       case 'map': return <MapPage dataset={displayDataset} selectedStation={selectedStation} setSelectedStation={setSelectedStation} onDownloadStationData={handleDownloadStation} />;
-      case 'analytics': return <AnalyticsPage dataset={displayDataset} />;
-      case 'explorer': return <DataExplorerPage dataset={displayDataset} />;
-      case 'sensorthings': return <SensorThingsExplorer />;
       case 'ogc': return <OGCViewerPage />;
-      case 'compliance': return <CompliancePage />;
-      case 'settings': return <SettingsPage pressureThresholds={pressureThresholds} setPressureThresholds={setPressureThresholds} pressureUnit={pressureUnit} setPressureUnit={setPressureUnit} onResetToDefault={handleReset} />;
       case 'about': return <AboutPage />;
       default: return <Dashboard dataset={displayDataset} onDataLoaded={handleDataLoaded} setActivePage={setActivePage} />;
     }
