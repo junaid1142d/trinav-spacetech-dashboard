@@ -1,6 +1,7 @@
 import express from 'express';
 import sensorThingsRouter from './routes/sensorthings.js';
 import ogcProxyRouter from './routes/ogcProxy.js';
+import osmProxyRouter from './routes/osmProxy.js';
 
 // This module builds the Express app with just the API routes — no static
 // file serving and no app.listen(). That lets the same routing logic run:
@@ -19,5 +20,6 @@ app.use(express.json());
 
 app.use('/v1.1', sensorThingsRouter);
 app.use('/api/ogc', ogcProxyRouter);
+app.use('/api/osm', osmProxyRouter);
 
 export default app;

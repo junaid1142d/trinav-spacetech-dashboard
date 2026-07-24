@@ -198,6 +198,21 @@ export async function wfsGetFeature(serviceUrl, typeName, bbox, signal, maxFeatu
   throw new Error(`WFS error: ${errors[errors.length - 1]}`);
 }
 
+// ─── OSM Infrastructure (via Overpass API, proxied) ─────────
+// Not OGC WFS -- Overpass QL is a different protocol -- but it's real,
+// verified, working data for roads/substations/transmission lines, which
+// the Natural Earth WFS demo layers are too sparse to provide for a
+// state-sized area. bbox is [minLon, minLat, maxLon, maxLat] (matches the
+// rest of this file's convention); this function reorders it to Overpass's
+// native south,west,north,east before calling the proxy.
+export async function osmGetFeature(dataset, bbox, signal) {
+  const [minLon, minLat, maxLon, maxLat] = bbox.split(',').map(Number);
+  const overpassBbox = `${minLat},${minLon},${maxLat},${maxLon}`;
+  const url = buildOgcUrl('/api/osm/query', { dataset, bbox: overpassBbox });
+  const text = await timedFetch(url, `OSM (Overpass): ${dataset}`, signal);
+  return JSON.parse(text);
+}
+
 // ─── WMS: Build GetMap URL ───────────────────────────────────
 export function buildWmsGetMapUrl(serviceUrl, layerName, bbox, width = 256, height = 256, crs = 'EPSG:3857') {
   return `${serviceUrl}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${layerName}&BBOX=${bbox}&WIDTH=${width}&HEIGHT=${height}&CRS=${crs}&FORMAT=image/png&TRANSPARENT=TRUE&STYLES=`;

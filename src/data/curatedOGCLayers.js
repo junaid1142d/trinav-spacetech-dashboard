@@ -116,4 +116,47 @@ export const OGC_SERVICES_CONFIG = {
     crs: 'EPSG:4326',
     description: 'OGC WFS endpoint serving Natural Earth vector datasets for geographic context',
   },
+  OSM: {
+    name: 'OpenStreetMap (Overpass API)',
+    url: '/api/osm/query',
+    version: 'Overpass QL 0.7',
+    crs: 'EPSG:4326',
+    description: 'Real transportation and power infrastructure data for Tamil Nadu — not OGC WFS, a different protocol, but far more complete than the Natural Earth demo layers for a state-sized area.',
+  },
 };
+
+// ─── Curated OSM Infrastructure Layers (via Overpass) ────────
+// Honestly labeled as OSM/Overpass rather than WFS -- Overpass QL is a
+// distinct protocol from OGC WFS, even though the output is converted to
+// GeoJSON and renders identically on the map. Each `dataset` value maps to
+// a query builder in server/routes/osmProxy.js.
+export const CURATED_OSM_LAYERS = [
+  {
+    dataset: 'roads',
+    title: 'Major Roads (Motorway/Trunk/Primary/Secondary)',
+    category: 'Transportation',
+    relevance: 'Real OSM road network, replacing the sparse Natural Earth demo layer. Distance-to-road is a standard exclusion/cost factor in solar and wind site suitability.',
+    icon: '🛣️',
+  },
+  {
+    dataset: 'substations',
+    title: 'Power Substations',
+    category: 'Grid Infrastructure',
+    relevance: 'Grid connection cost rises sharply with distance to the nearest substation — one of the highest-weight factors in utility-scale renewable siting.',
+    icon: '⚡',
+  },
+  {
+    dataset: 'transmission_lines',
+    title: 'Transmission Lines',
+    category: 'Grid Infrastructure',
+    relevance: 'Existing transmission corridors reduce interconnection cost for new solar/wind capacity sited nearby.',
+    icon: '🔌',
+  },
+  {
+    dataset: 'boundary',
+    title: 'Tamil Nadu State Boundary',
+    category: 'Administrative',
+    relevance: 'Real administrative boundary from OSM, replacing the static hand-drawn rectangle previously used as a placeholder.',
+    icon: '🗺️',
+  },
+];

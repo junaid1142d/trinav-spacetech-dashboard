@@ -7,9 +7,9 @@ import {
 import { MapContainer, TileLayer, WMSTileLayer, CircleMarker, Popup, GeoJSON, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import RequestInspector from '../components/RequestInspector';
-import { wmsGetCapabilities, wfsGetFeature } from '../services/api';
+import { wmsGetCapabilities, wfsGetFeature, osmGetFeature } from '../services/api';
 import tamilnaduDistricts, { ZONE_COLORS, getSuitabilityColor, getSuitabilityLabel } from '../data/tamilnaduDistricts';
-import { CURATED_WMS_LAYERS, CURATED_WFS_LAYERS, DATA_SOURCES, OGC_SERVICES_CONFIG } from '../data/curatedOGCLayers';
+import { CURATED_WMS_LAYERS, CURATED_WFS_LAYERS, CURATED_OSM_LAYERS, DATA_SOURCES, OGC_SERVICES_CONFIG } from '../data/curatedOGCLayers';
 
 // ─── Map Controller ────────────────────────────────
 function FitBounds({ bounds }) {
@@ -20,14 +20,63 @@ function FitBounds({ bounds }) {
   return null;
 }
 
-// ─── WFS GeoJSON Layer ─────────────────────────────
-function WFSGeoJSONLayer({ data, onFeatureClick }) {
+// ─── District Suitability Heatmap ──────────────────
+// Canvas radial-gradient overlay driven by each district's suitability
+// score, following the same pattern as the barometric pressure heatmap in
+// TamilNaduMap.jsx. Uses the existing 38-district dataset -- no new data
+// source needed.
+function SuitabilityHeatmap({ districts, scoreField, opacity }) {
+  const map = useMap();
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || !districts?.length) return undefined;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const draw = () => {
+      const size = map.getSize();
+      canvas.width = size.x;
+      canvas.height = size.y;
+      ctx.clearRect(0, 0, size.x, size.y);
+      districts.forEach((f) => {
+        const [lng, lat] = f.geometry.coordinates;
+        const score = f.properties[scoreField] ?? 0;
+        const pt = map.latLngToContainerPoint([lat, lng]);
+        const color = getSuitabilityColor(score);
+        const rgb = color.match(/\w\w/g).map((h) => parseInt(h, 16)).join(',');
+        const r = Math.max(30, map.getZoom() * 14) * (0.5 + score / 100);
+        const grad = ctx.createRadialGradient(pt.x, pt.y, 2, pt.x, pt.y, r);
+        grad.addColorStop(0, `rgba(${rgb},0.65)`);
+        grad.addColorStop(0.5, `rgba(${rgb},0.25)`);
+        grad.addColorStop(1, `rgba(${rgb},0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, r, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+    };
+
+    draw();
+    map.on('viewreset move zoom', draw);
+    return () => map.off('viewreset move zoom', draw);
+  }, [map, districts, scoreField]);
+
+  return (
+    <div className="absolute top-0 left-0 pointer-events-none z-[400]" style={{ opacity, mixBlendMode: 'screen' }}>
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
+
+// ─── Generic Vector GeoJSON Layer (used for both WFS and OSM/Overpass data) ──
+function VectorGeoJSONLayer({ data, onFeatureClick, color = '#22D3EE' }) {
   if (!data?.features?.length) return null;
   const style = (feature) => {
     const geomType = feature.geometry?.type || '';
-    if (geomType.includes('Point')) return { color: '#22D3EE', weight: 0, fillColor: '#22D3EE', fillOpacity: 0.8 };
-    if (geomType.includes('Line')) return { color: '#22D3EE', weight: 2, opacity: 0.8 };
-    return { color: '#22D3EE', weight: 1.5, opacity: 0.7, fillColor: '#22D3EE', fillOpacity: 0.1 };
+    if (geomType.includes('Point')) return { color, weight: 0, fillColor: color, fillOpacity: 0.8 };
+    if (geomType.includes('Line')) return { color, weight: 2, opacity: 0.8 };
+    return { color, weight: 1.5, opacity: 0.7, fillColor: color, fillOpacity: 0.1 };
   };
   const pointToLayer = (feature, latlng) => L.circleMarker(latlng, { radius: 5, ...style(feature) });
   const onEachFeature = (feature, layer) => {
@@ -37,7 +86,7 @@ function WFSGeoJSONLayer({ data, onFeatureClick }) {
       mouseout: (e) => { try { e.target.setStyle(style(feature)); } catch {} },
     });
   };
-  return <GeoJSON key={Date.now()} data={data} style={style} pointToLayer={pointToLayer} onEachFeature={onEachFeature} />;
+  return <GeoJSON key={`${color}-${data.features.length}`} data={data} style={style} pointToLayer={pointToLayer} onEachFeature={onEachFeature} />;
 }
 
 // ─── Tabs ──────────────────────────────────────────
@@ -45,6 +94,7 @@ const TABS = [
   { id: 'districts', label: 'TN Districts', icon: MapPin },
   { id: 'wms', label: 'WMS Layers', icon: Globe },
   { id: 'wfs', label: 'WFS Data', icon: Database },
+  { id: 'osm', label: 'OSM Infra', icon: Zap },
   { id: 'sources', label: 'Data Sources', icon: BookOpen },
 ];
 
@@ -69,6 +119,8 @@ export default function OGCViewerPage() {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [districtSearch, setDistrictSearch] = useState('');
   const [showDistricts, setShowDistricts] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [heatmapOpacity, setHeatmapOpacity] = useState(0.6);
   const [colorBy, setColorBy] = useState('overall_score');
 
   // WMS
@@ -88,6 +140,14 @@ export default function OGCViewerPage() {
   const [selectedWFSFeature, setSelectedWFSFeature] = useState(null);
   const [wfsError, setWfsError] = useState(null);
   const [baseMap, setBaseMap] = useState('light');
+
+  // OSM Infrastructure (via Overpass)
+  const [activeOSMLayer, setActiveOSMLayer] = useState(null);
+  const [osmData, setOsmData] = useState(null);
+  const [loadingOSMData, setLoadingOSMData] = useState(false);
+  const [selectedOSMFeature, setSelectedOSMFeature] = useState(null);
+  const [osmError, setOsmError] = useState(null);
+  const TN_BBOX = '76.2,7.9,80.6,13.5';
 
   const abortRef = useRef(null);
   const tnBounds = [[7.9, 76.2], [13.5, 80.6]];
@@ -149,6 +209,33 @@ export default function OGCViewerPage() {
     loadCuratedWFS(layer);
   };
 
+  // OSM (Overpass): Load features for a curated infrastructure layer
+  const loadCuratedOSM = async (layer) => {
+    setActiveOSMLayer(layer); setLoadingOSMData(true); setOsmData(null); setSelectedOSMFeature(null); setOsmError(null);
+    try {
+      const data = await osmGetFeature(layer.dataset, TN_BBOX, null);
+      if (!data?.features?.length) {
+        setOsmData({ features: [], note: 'Overpass returned zero features for this query. Try again — Overpass can rate-limit or time out under load.' });
+      } else {
+        setOsmData(data);
+      }
+    } catch (e) {
+      setOsmError(e.message);
+      setOsmData(null);
+    } finally { setLoadingOSMData(false); }
+  };
+
+  const toggleCuratedOSM = (layer) => {
+    if (activeOSMLayer?.dataset === layer.dataset) {
+      setActiveOSMLayer(null);
+      setOsmData(null);
+      setSelectedOSMFeature(null);
+      setOsmError(null);
+      return;
+    }
+    loadCuratedOSM(layer);
+  };
+
   useEffect(() => () => abortRef.current?.abort(), []);
   useEffect(() => {
     if (!activeWMSLayer) {
@@ -202,6 +289,12 @@ export default function OGCViewerPage() {
             <span className="flex items-center gap-1.5 px-2 py-1 bg-white/5 border border-white/15 rounded-md text-[9px] font-mono text-white">
               <Database className="w-3 h-3" />{wfsData.features.length} WFS features
               <button onClick={() => { setWfsData(null); setActiveWFSLayer(null); }} className="hover:text-red-400"><X className="w-2.5 h-2.5" /></button>
+            </span>
+          )}
+          {osmData?.features?.length > 0 && (
+            <span className="flex items-center gap-1.5 px-2 py-1 bg-[#EAB308]/10 border border-[#EAB308]/25 rounded-md text-[9px] font-mono text-[#EAB308]">
+              <Zap className="w-3 h-3" />{osmData.features.length} OSM features
+              <button onClick={() => { setOsmData(null); setActiveOSMLayer(null); }} className="hover:text-red-400"><X className="w-2.5 h-2.5" /></button>
             </span>
           )}
           {activeWMSLayer && (
@@ -264,6 +357,17 @@ export default function OGCViewerPage() {
                       className="p-1 rounded border border-white/[0.06] text-[#525252] hover:text-white transition-colors">
                       {showDistricts ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                     </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[9px] text-[#D4D4D4] font-mono">
+                      <input type="checkbox" checked={showHeatmap} onChange={() => setShowHeatmap(v => !v)} className="w-3 h-3 accent-[#22D3EE]" />
+                      Suitability Heatmap
+                    </label>
+                    {showHeatmap && (
+                      <input type="range" min="0.1" max="1" step="0.05" value={heatmapOpacity}
+                        onChange={e => setHeatmapOpacity(parseFloat(e.target.value))}
+                        className="w-16 accent-[#22D3EE] cursor-pointer" />
+                    )}
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -465,6 +569,87 @@ export default function OGCViewerPage() {
               </div>
             )}
 
+            {/* ── OSM INFRASTRUCTURE TAB ── */}
+            {activeTab === 'osm' && (
+              <div className="flex flex-col h-full">
+                <div className="p-3 border-b border-white/[0.06] flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="w-3.5 h-3.5 text-[#EAB308]" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-white">{OGC_SERVICES_CONFIG.OSM.name}</p>
+                      <p className="text-[8px] text-[#404040] font-mono truncate">{OGC_SERVICES_CONFIG.OSM.version}</p>
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-[#525252] leading-relaxed mb-2">
+                    Real road and grid infrastructure data. Not OGC WFS — Overpass QL is a different protocol — but far more complete than the Natural Earth demo layers for a state-sized area.
+                  </p>
+                  <div className="px-2 py-1.5 bg-[#111] border border-white/[0.06] rounded-lg text-[8px] text-[#404040] font-mono">
+                    BBOX: 76.2°E, 7.9°N → 80.6°E, 13.5°N (Tamil Nadu)
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  <div className="px-3 py-2 text-[8px] text-[#404040] font-mono uppercase tracking-wider bg-[#080808] border-b border-white/[0.04]">
+                    Infrastructure Layers ({CURATED_OSM_LAYERS.length})
+                  </div>
+                  {CURATED_OSM_LAYERS.map(l => {
+                    const isActive = activeOSMLayer?.dataset === l.dataset;
+                    const isLoading = loadingOSMData && isActive;
+                    return (
+                      <button key={l.dataset} onClick={() => !isLoading && toggleCuratedOSM(l)}
+                        disabled={isLoading}
+                        className={`w-full text-left px-3 py-3 border-b border-white/[0.04] transition-all ${
+                          isActive ? 'bg-[#EAB308]/5 border-l-2 border-l-[#EAB308]' : 'hover:bg-white/[0.02] border-l-2 border-l-transparent'
+                        }`}>
+                        <div className="flex items-start gap-2">
+                          <span className="text-sm flex-shrink-0 mt-0.5">{l.icon}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <p className={`text-[10px] font-semibold truncate ${isActive ? 'text-[#EAB308]' : 'text-[#737373]'}`}>{l.title}</p>
+                              {isLoading && <RefreshCw className="w-3 h-3 text-[#EAB308] animate-spin flex-shrink-0" />}
+                              {isActive && !isLoading && osmData?.features?.length > 0 && <CheckCircle2 className="w-3 h-3 text-[#22C55E] flex-shrink-0" />}
+                            </div>
+                            <p className="text-[8px] text-[#EAB308]/60 font-mono">{l.category}</p>
+                            <p className="text-[8px] text-[#404040] mt-1 leading-relaxed">{l.relevance}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {osmError && (
+                  <div className="p-3 border-t border-white/[0.06] flex-shrink-0">
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-red-950/20 border border-red-500/20 rounded-lg text-[9px] text-red-400 font-mono">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />{osmError}
+                    </div>
+                    {activeOSMLayer && (
+                      <button
+                        onClick={() => loadCuratedOSM(activeOSMLayer)}
+                        className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white text-black text-[10px] font-bold rounded-lg hover:bg-white/90 transition-colors"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Retry Overpass request
+                      </button>
+                    )}
+                  </div>
+                )}
+                {osmData?.note && (
+                  <div className="p-3 border-t border-white/[0.06] flex-shrink-0">
+                    <p className="text-[9px] text-[#737373] font-mono">{osmData.note}</p>
+                  </div>
+                )}
+                {osmData?.features?.length > 0 && (
+                  <div className="p-3 border-t border-white/[0.06] flex-shrink-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <CheckCircle2 className="w-3 h-3 text-[#22C55E]" />
+                      <span className="text-[9px] text-[#22C55E] font-mono font-bold">{osmData.features.length} features loaded</span>
+                    </div>
+                    <p className="text-[8px] text-[#404040] font-mono">Click any feature on the map to inspect its attributes.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── DATA SOURCES TAB ── */}
             {activeTab === 'sources' && (
               <div className="flex flex-col h-full">
@@ -519,6 +704,14 @@ export default function OGCViewerPage() {
               <TileLayer key={baseMap} url={OGC_BASEMAPS[baseMap].url} />
               <FitBounds bounds={tnBounds} />
 
+              {showHeatmap && (
+                <SuitabilityHeatmap
+                  districts={tamilnaduDistricts.features}
+                  scoreField={colorBy === 'zone' ? 'overall_score' : colorBy}
+                  opacity={heatmapOpacity}
+                />
+              )}
+
               {activeWMSLayer && (
                 <WMSTileLayer
                   url={OGC_SERVICES_CONFIG.WMS.url}
@@ -542,7 +735,11 @@ export default function OGCViewerPage() {
               )}
 
               {wfsData && !wfsData.error && wfsData.features?.length > 0 && (
-                <WFSGeoJSONLayer data={wfsData} onFeatureClick={setSelectedWFSFeature} />
+                <VectorGeoJSONLayer data={wfsData} onFeatureClick={setSelectedWFSFeature} color="#22D3EE" />
+              )}
+
+              {osmData && !osmData.error && osmData.features?.length > 0 && (
+                <VectorGeoJSONLayer data={osmData} onFeatureClick={setSelectedOSMFeature} color="#EAB308" />
               )}
 
               {showDistricts && tamilnaduDistricts.features.map(f => {
@@ -657,28 +854,33 @@ export default function OGCViewerPage() {
             </div>
           )}
 
-          {/* WFS Feature detail */}
-          {selectedWFSFeature && !selectedDistrict && (
-            <div className="h-28 border-t border-white/[0.06] bg-[#050505] px-5 py-3 flex-shrink-0 relative">
-              <div className="flex items-center gap-2 mb-2">
-                <Database className="w-4 h-4 text-[#22D3EE]" />
-                <span className="text-sm font-bold text-white">WFS Feature Attributes</span>
-                <span className="text-[9px] font-mono text-[#525252] bg-[#111] px-1.5 py-0.5 rounded">{selectedWFSFeature.geometry?.type}</span>
+          {/* Vector Feature detail (WFS or OSM) */}
+          {(selectedWFSFeature || selectedOSMFeature) && !selectedDistrict && (() => {
+            const feature = selectedOSMFeature || selectedWFSFeature;
+            const isOSM = !!selectedOSMFeature;
+            const clear = () => { setSelectedWFSFeature(null); setSelectedOSMFeature(null); };
+            return (
+              <div className="h-28 border-t border-white/[0.06] bg-[#050505] px-5 py-3 flex-shrink-0 relative">
+                <div className="flex items-center gap-2 mb-2">
+                  {isOSM ? <Zap className="w-4 h-4 text-[#EAB308]" /> : <Database className="w-4 h-4 text-[#22D3EE]" />}
+                  <span className="text-sm font-bold text-white">{isOSM ? 'OSM Feature Attributes' : 'WFS Feature Attributes'}</span>
+                  <span className="text-[9px] font-mono text-[#525252] bg-[#111] px-1.5 py-0.5 rounded">{feature.geometry?.type}</span>
+                </div>
+                <div className="flex gap-2.5 overflow-x-auto">
+                  {Object.entries(feature.properties || {}).filter(([,v]) => v != null).slice(0, 10).map(([k, v]) => (
+                    <div key={k} className="flex-shrink-0 bg-[#0A0A0A] border border-white/[0.06] rounded-lg px-3 py-2 min-w-[90px]">
+                      <p className="text-[7px] text-[#404040] font-mono uppercase truncate">{k}</p>
+                      <p className="text-[10px] text-white font-mono font-semibold truncate mt-0.5">{String(v)}</p>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={clear}
+                  className="absolute right-4 top-3 p-1 rounded border border-white/10 text-[#525252] hover:text-white">
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <div className="flex gap-2.5 overflow-x-auto">
-                {Object.entries(selectedWFSFeature.properties || {}).filter(([,v]) => v != null).slice(0, 10).map(([k, v]) => (
-                  <div key={k} className="flex-shrink-0 bg-[#0A0A0A] border border-white/[0.06] rounded-lg px-3 py-2 min-w-[90px]">
-                    <p className="text-[7px] text-[#404040] font-mono uppercase truncate">{k}</p>
-                    <p className="text-[10px] text-white font-mono font-semibold truncate mt-0.5">{String(v)}</p>
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => setSelectedWFSFeature(null)}
-                className="absolute right-4 top-3 p-1 rounded border border-white/10 text-[#525252] hover:text-white">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Request Inspector */}
           <div className="flex-shrink-0"><RequestInspector /></div>
