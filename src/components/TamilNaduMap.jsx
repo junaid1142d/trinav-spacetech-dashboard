@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polygon, WMSTileLayer, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import tamilnaduDistricts, { getSuitabilityColor, getSuitabilityLabel } from '../data/tamilnaduDistricts';
 import {
   Crosshair, Home, Layers, LocateFixed, Maximize, Minimize, Search, Plus, Minus
 } from 'lucide-react';
@@ -162,6 +163,16 @@ function createMarkerIcon(color, selected) {
   });
 }
 
+function createDistrictIcon(color) {
+  const size = 14;
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;background:${color};border:1.5px solid rgba(255,255,255,0.7);box-shadow:0 0 5px ${color}90;transform:rotate(45deg);transition:all 0.2s"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 function MiniTrend({ values, color }) {
   if (!values?.length) return null;
   const min = Math.min(...values);
@@ -228,6 +239,7 @@ export default function TamilNaduMap({
   const [fullscreen, setFullscreen] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showBoundary, setShowBoundary] = useState(true);
+  const [showSuitabilityDistricts, setShowSuitabilityDistricts] = useState(true);
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.55);
   const [basemap, setBasemap] = useState('osm');
   const [search, setSearch] = useState('');
@@ -325,6 +337,10 @@ export default function TamilNaduMap({
 
         <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#0A0A0A]/95 border border-white/10 text-[10px] font-mono">
           <label className="flex items-center gap-1.5 cursor-pointer text-[#D4D4D4]">
+            <input type="checkbox" checked={showSuitabilityDistricts} onChange={() => setShowSuitabilityDistricts(v => !v)} className="w-3 h-3 accent-[#22C55E]" />
+            38 Districts
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer text-[#D4D4D4]">
             <input type="checkbox" checked={showHeatmap} onChange={() => setShowHeatmap(v => !v)} className="w-3 h-3 accent-[#22D3EE]" />
             <Layers className="w-3 h-3" /> Heatmap
           </label>
@@ -402,6 +418,39 @@ export default function TamilNaduMap({
         {showBoundary && (
           <Polygon positions={TN_POLYGON} pathOptions={{ color: '#22D3EE', weight: 1.5, opacity: 0.75, fillOpacity: 0.03, dashArray: '6 6' }} />
         )}
+        {showSuitabilityDistricts && tamilnaduDistricts.features.map((f) => {
+          const p = f.properties;
+          const [lng, lat] = f.geometry.coordinates;
+          const color = getSuitabilityColor(p.overall_score);
+          return (
+            <Marker key={p.name} position={[lat, lng]} icon={createDistrictIcon(color)}>
+              <Popup>
+                <div className="min-w-[210px] text-[11px]">
+                  <p className="font-bold text-white text-sm mb-1">{p.name}</p>
+                  <p className="text-[9px] text-[#737373] font-mono mb-2">{p.zone} · {p.terrain}</p>
+                  <div className="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
+                    <div className="bg-[#111] rounded p-1.5 border border-white/[0.06]">
+                      <span className="text-[#404040] block">Overall</span>
+                      <span className="font-bold" style={{ color }}>{p.overall_score}/100 · {getSuitabilityLabel(p.overall_score)}</span>
+                    </div>
+                    <div className="bg-[#111] rounded p-1.5 border border-white/[0.06]">
+                      <span className="text-[#404040] block">Solar</span>
+                      <span className="font-bold text-[#EAB308]">{p.suitability_solar}/100</span>
+                    </div>
+                    <div className="bg-[#111] rounded p-1.5 border border-white/[0.06]">
+                      <span className="text-[#404040] block">Wind</span>
+                      <span className="font-bold text-[#22D3EE]">{p.suitability_wind}/100</span>
+                    </div>
+                    <div className="bg-[#111] rounded p-1.5 border border-white/[0.06]">
+                      <span className="text-[#404040] block">Grid</span>
+                      <span className="font-bold text-white">{p.grid_proximity_km} km</span>
+                    </div>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
         {currentObservations.map((obs, i) => {
           const isSelected = selectedStation?.Station === obs.Station;
           const color = getPressureColor(obs.Pressure_hPa);

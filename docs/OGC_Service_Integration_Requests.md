@@ -50,7 +50,8 @@ This document lists the live OGC endpoints and request patterns used by the inte
 ## Curated Layers Queried
 
 - **WMS:** MODIS true color, NDVI 8-day, land surface temperature (day) — three layers, all confirmed against NASA GIBS documentation.
-- **WFS:** `ne:ne_10m_populated_places`, `ne:ne_10m_roads` — the only two globally-relevant, EPSG:4326-native feature types this GeoServer demo actually publishes. Verified directly against its `GetCapabilities` response on 2026-07-22; do not add other typeNames without re-checking that response first.
+- **WFS:** `ne:ne_10m_populated_places` — the only feature type from this GeoServer demo currently curated in the app. `ne:ne_10m_roads` is real and exists on the server, but its road-geometry query proved slow enough on this shared public demo instance to time out through the proxy in production (confirmed: HTTP 504 after all fallback attempts). Verified directly against its `GetCapabilities` response on 2026-07-22; do not add other typeNames without re-checking that response first.
+- **OSM/Overpass (not OGC WFS, different protocol):** roads, power substations, transmission lines, and the Tamil Nadu state boundary, queried live from `overpass-api.de` and converted to GeoJSON server-side. Added specifically to replace the timing-out `ne:ne_10m_roads` layer with real, complete OpenStreetMap data instead of a small-scale reference dataset.
 
 ## Bottlenecks Observed
 

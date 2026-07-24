@@ -80,15 +80,13 @@ export const CURATED_WFS_LAYERS = [
     defaultBBOX: '76.2,7.9,80.6,13.5',
     maxFeatures: 50,
   },
-  {
-    name: 'ne:ne_10m_roads',
-    title: 'Major Roads',
-    category: 'Infrastructure',
-    relevance: 'Road proximity affects construction logistics and transmission line routing for solar/wind sites.',
-    icon: '🛣️',
-    defaultBBOX: '76.2,7.9,80.6,13.5',
-    maxFeatures: 80,
-  },
+  // NOTE: 'ne:ne_10m_roads' was removed here. It's a real feature type on
+  // ahocevar.com's demo GeoServer, but the road-geometry query is slow
+  // enough on that public demo instance to time out through our proxy in
+  // production (confirmed: HTTP 504 after all 3 fallback attempts). Real,
+  // reliable road data is now served by the OSM Infra tab instead, which
+  // queries the actual OpenStreetMap road network via Overpass rather
+  // than this small-scale reference dataset.
 ];
 
 // ─── Data Source Attribution ─────────────────────────
